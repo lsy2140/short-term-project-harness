@@ -256,6 +256,37 @@ class TestInputs(_TmpRoot):
         self.assertIn('기록 없음', data['lines'][0])
 
 
+# ---------------------------------------------------------------- 결정 대기함 (사람이 항상 결정)
+class TestPendingDecisions(_TmpRoot):
+    def setUp(self):
+        super().setUp()
+        os.makedirs(os.path.join(self.root, 'decisions'))
+
+    PENDING = (
+        '# 결정 대기함\n\n'
+        '## D00 (예시, 삭제 가능) 계산식   (영향: 정렬 | 담당자 확인: 필요)\n- [ ] A. 가 (추천)\n- [ ] B. 나\n메모:\n\n'
+        '## D07 계산식   (영향: 정렬 | 담당자 확인: 필요)\n- [ ] A. 최대 (추천)\n- [ ] B. 평균\n담당자 질문: 무엇을 먼저 보시나요?\n메모:\n\n'
+        '## D08 반올림   (영향: 출력 | 담당자 확인: 불필요 — 기술 선택)\n- [ ] A. 둘째 자리 (추천)\n- [ ] B. 정수\n메모:\n\n'
+        '## D09 시간대   (영향: 시각 | 담당자 확인: 필요)\n- [ ] A. UTC\n- [x] 반영 10:35 B. KST (추천)\n메모:\n')
+
+    def test_read_pending_skips_example_and_answered(self):
+        self.write(os.path.join('decisions', 'pending.md'), self.PENDING)
+        p = nextmod.read_pending(self.root)
+        self.assertEqual(p['open'], ['D07', 'D08'])
+        self.assertEqual(p['ask'], ['D07'])
+
+    def test_open_decisions_are_recommended(self):
+        self.write(os.path.join('decisions', 'pending.md'), self.PENDING)
+        data = nextmod.build(self.root, start='09:00', now='10:14', use_records=False)
+        self.assertIn('결정 대기 D07·D08', data['lines'][1])
+        self.assertIn('담당자 확인 필요: D07', data['lines'][1])
+        self.assertNotIn('기본값', data['lines'][1])
+
+    def test_no_pending_file_means_no_decision_line(self):
+        data = nextmod.build(self.root, start='09:00', now='10:14', use_records=False)
+        self.assertNotIn('결정 대기', data['lines'][1])
+
+
 # ---------------------------------------------------------------- CLI (--json·평문·--help)
 class TestCli(_TmpRoot):
     def test_json_output_parses_and_matches_lines(self):

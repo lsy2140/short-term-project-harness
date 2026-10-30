@@ -46,7 +46,7 @@
 | 같은 에러가 5분째 | 에러 메시지 전문을 Codex에 붙여넣고 `$debug-loop` |
 | 15분째 진전 없음 | 그 규칙을 TASK.md 8번(못 한 것)으로 옮기고 이유를 적는다. 포기하고 적는 것은 감점이 작고 조용히 틀린 코드가 감점이 크다 |
 | 코드가 이해 안 됨 | "더 단순하게 다시 써줘. 내가 읽고 설명할 수 있게" + 보고서 세션 `$stage-report N` 으로 그 단계의 구현 위치·방법·샘플을 그림으로 본다 |
-| 결정을 못 정하겠다 | `python3 scripts/decide.py` 로 후보·추천·기본값을 보고 고른다. 못 고르면 기본값 시각에 기본값으로 진행된다 |
+| 결정을 못 정하겠다 | `decisions/pending.md` 또는 `python3 scripts/decide.py`(사람이 실행)로 후보·추천·담당자 질문을 본다. 업무 사실이 필요하면 그 질문을 담당자에게 보내고 답을 메모에 적어 고른다. Codex 는 답이 올 때까지 그 결정에 기대는 작업을 하지 않는다 |
 | 디버그 파일이 늘어난다 | `scripts/debug_dir.py` 폴더당 5파일, 스냅샷 금지, 임시물은 `.tmp/` |
 | 남은 시간 30분, 미완성 | 기능 추가 중단. 되는 부분만 확실히, 나머지는 한계로 문서화 |
 | `git clone` 실패 | **Plan C**: GitHub 웹에서 AGENTS.md → TASK.md → DECISIONS.md 순으로 복사·붙여넣기(이 3개면 절반). 나머지는 Codex에게 "AGENTS.md 3절 규칙대로 preflight.py를 만들어줘" |
@@ -65,6 +65,6 @@
 - [ ] HANDOFF.md 작성(다음 사람이 이어갈 수 있게)
 - [ ] 심사자 시뮬레이션 미충족 항목 보완 또는 한계로 기록
 - [ ] 웹 과제: 미리보기 콘솔 오류 0 / 390px 가로 스크롤 없음 / 데모 순서 1회 완주(시각 기록) / screenshots/ 2장
-- [ ] `decisions/pending.md` 미답 항목 0 (답했거나 기본값 적용으로 표시)
+- [ ] `decisions/pending.md` 미답 항목 0 (전부 사람이 답함, 담당자 확인 필요 항목은 담당자 답을 메모에 남김)
 - [ ] `out/debug` 단계 폴더 ≤ 40파일, 스냅샷 폴더 없음, `.tmp/` 는 제출물 아님(복구본 `.tmp/freeze_1/` 만 허용)
 - [ ] `out/report/index.html`(보고서 세션 `$stage-report all`) 최신, `docs/diagrams/`(archify, 있으면) README 데모 순서에 링크

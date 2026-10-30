@@ -7,11 +7,12 @@
   python3 scripts/decide.py --list          # 미답 항목 표만 터미널에 (서버 없음)
   python3 scripts/decide.py --dry-run       # pending.md 파싱 결과를 JSON 으로 (서버 없음)
 
-동작  GET /            미답(`- [ ]`) 항목마다 제목·영향·기본값·안 정하면·후보 라디오(기타는 텍스트 칸)·메모. 답한 항목은 '답변됨' 으로 접어 보인다.
+동작  GET /            미답(`- [ ]`) 항목마다 제목·영향·담당자 확인(필요하면 담당자 질문)·후보 라디오(기타는 텍스트 칸)·메모. 답한 항목은 '답변됨' 으로 접어 보인다.
       POST /answer     answers.md 에 `D07: A (메모: …) @HH:MM` 한 줄 append + pending.md 의 그 후보를 `[x]` 로(다른 줄은 그대로).
       GET /design-kit/ design-kit 의 *.css 만 정적 제공(tokens·base·components).
 거부  없는 ID·빈 선택·이미 답한 항목·폼이 아닌 본문 → 400 과 메시지 / 루트 밖 경로(..) → 403 / 64KB 넘는 본문 → 413.
-형식  pending.md 항목(AGENTS.md 5절): `## D07 제목   (영향: … | 기본값: A | 안 정하면: 63분에 A 로 진행)` + `- [ ] A. 후보 — 근거 (추천)` 2~4개 + `메모:`.
+형식  pending.md 항목(AGENTS.md 5절): `## D07 제목   (영향: … | 담당자 확인: 필요)` + `- [ ] A. 후보 — 근거 (추천)` 2~4개 + `담당자 질문: …`(필요할 때) + `메모:`.
+      결정은 항상 사람이 한다 — 기본값·시간 경과로 대신 정하는 필드는 없다(옛 형식의 `기본값`·`안 정하면` 은 읽고 무시한다).
 종료 코드  0 정상 / 1 pending.md 없음·포트 열기 실패 / 2 인자 오류.
 순수 함수  parse_pending · parse_answers · format_answer_line · append_answer · mark_answered (파일을 만지지 않는다; tests/test_decide.py 가 검증).
 """
@@ -47,26 +48,28 @@ ANSWERS_HEADER = (
 )
 
 ID_RE = re.compile(r'^## (D\d+)\b\s*(.*?)\s*$')
-META_RE = re.compile(r'^(.*?)\s*\(([^()]*(?:영향|기본값|안 정하면)[^()]*)\)\s*$')
+META_RE = re.compile(r'^(.*?)\s*\(([^()]*(?:영향|담당자 확인|기본값|안 정하면)[^()]*)\)\s*$')
 CAND_RE = re.compile(r'^- \[([ xX])\]\s*(?:반영\s*(\d\d:\d\d)\s*)?([A-Za-z0-9])[.)]\s*(.*?)\s*$')
 TAIL_APPLIED_RE = re.compile(r'\s*반영\s*(\d\d:\d\d)\s*$')
 RECOMMEND_RE = re.compile(r'\s*\(추천\)\s*')
 OTHER_RE = re.compile(r'^기타\s*[:：]?\s*(.*)$')
 MEMO_RE = re.compile(r'^메모:\s*(.*?)\s*$')
+QUESTION_RE = re.compile(r'^담당자 질문:\s*(.*?)\s*$')
 ANSWER_RE = re.compile(r'^(D\d+):\s*(\S+)(?:\s+\(기타:\s*(.*?)\))?(?:\s+\(메모:\s*(.*?)\))?\s*@(\d\d:\d\d)\s*$')
 
 
 # ---------------------------------------------------------------- 순수 함수: 파싱
 def parse_pending(text):
     """pending.md 본문 → 항목 목록. 항목은 `## Dnn …` 부터 다음 제목 전까지. 줄 번호(line_no)는 mark_answered 가 쓴다.
-    항목 dict: id·title·impact·default·fallback·memo·candidates[]·answered·answer·applied·line_no
+    항목 dict: id·title·impact·ask·question·memo·candidates[]·answered·answer·applied·line_no
+    ask: '필요' / '불필요 — …' / '' (담당자 확인), question: 담당자에게 보낼 질문 한 줄
     후보 dict: key·text·recommended·other·checked·applied·line_no"""
     items, cur = [], None
     for no, raw in enumerate(text.split('\n')):
         line = raw.rstrip('\r')
         m = ID_RE.match(line)
         if m:
-            cur = {'id': m.group(1), 'title': '', 'impact': '', 'default': '', 'fallback': '', 'memo': '',
+            cur = {'id': m.group(1), 'title': '', 'impact': '', 'ask': '', 'question': '', 'memo': '',
                    'candidates': [], 'answered': False, 'answer': '', 'applied': '', 'line_no': no}
             rest = m.group(2)
             mm = META_RE.match(rest)
@@ -77,10 +80,9 @@ def parse_pending(text):
                     key, val = key.strip(), val.strip()
                     if key == '영향':
                         cur['impact'] = val
-                    elif key == '기본값':
-                        cur['default'] = val
-                    elif key == '안 정하면':
-                        cur['fallback'] = val
+                    elif key == '담당자 확인':
+                        cur['ask'] = val
+                    # 결정: 옛 형식의 기본값·안 정하면 은 무시 / 결정은 항상 사람이 한다(사용자 지시 10/30) / 기본값으로 자동 진행
             else:
                 cur['title'] = rest.strip()
             items.append(cur)
@@ -106,6 +108,10 @@ def parse_pending(text):
                 text_part = '기타' + (': ' + filled if filled else '')
             cur['candidates'].append({'key': mc.group(3), 'text': text_part, 'recommended': recommended, 'other': other,
                                       'checked': mc.group(1) != ' ', 'applied': applied, 'line_no': no})
+            continue
+        mq = QUESTION_RE.match(line)
+        if mq:
+            cur['question'] = mq.group(1)
             continue
         mm2 = MEMO_RE.match(line)
         if mm2:
@@ -272,7 +278,8 @@ def render_form(it):
          '<form class="form" method="post" action="/answer">',
          '<input type="hidden" name="id" value="%s">' % e(iid),
          '<h2 id="h-%s"><span class="id">%s</span> %s</h2>' % (e(iid), e(iid), e(it['title']) or '(제목 없음)'),
-         '<dl class="kv">' + _kv('영향', it['impact']) + _kv('기본값', it['default']) + _kv('안 정하면', it['fallback']) + '</dl>',
+         '<dl class="kv">' + _kv('영향', it['impact']) + _kv('담당자 확인', it['ask']) + '</dl>',
+         ('<div class="banner info"><b>담당자에게 먼저 물어보기</b><span>%s</span></div>' % e(it['question'])) if it['question'] else '',
          '<fieldset class="field"><legend class="label">후보 (하나를 고른다)</legend><div class="choices">']
     has_other = False
     for c in it['candidates']:
@@ -322,7 +329,7 @@ def render_page(items, answers=None, notice=None):
     h = [PAGE_HEAD, '<main class="container narrow">',
          '<header class="hdr"><div class="row between"><h1>결정 대기함</h1><a class="btn sm" href="/">다시 읽기</a></div>',
          '<p class="lead">decisions/pending.md 의 미답 항목에 답한다. 기록하면 answers.md 에 한 줄이 쌓이고 Codex 가 다음 턴에 읽는다. '
-         '기본값 시각까지 답이 없으면 기본값으로 진행된다.</p>',
+         '결정은 항상 사람이 하며 Codex 는 답이 올 때까지 이 결정에 기대는 작업을 하지 않는다. 파란 상자가 있는 항목은 담당자에게 그 질문을 먼저 보내고 답을 메모에 적는다.</p>',
          '<p class="meta">미답 %d건 · 답변됨 %d건 · 파일 decisions/pending.md</p></header>' % (len(open_items), len(done_items))]
     if notice:
         kind, msg = notice
@@ -452,10 +459,12 @@ def print_list(items):
     if not rows:
         print('미답 항목 없음 (답변됨 %d건)' % done)
         return
-    print('ID | 제목 | 영향 | 기본값 | 안 정하면 | 후보')
+    print('ID | 제목 | 영향 | 담당자 확인 | 후보')
     for it in rows:
         cands = '·'.join('%s%s%s' % (c['key'], '(추천)' if c['recommended'] else '', ' 기타' if c['other'] else '') for c in it['candidates'])
-        print(' | '.join([it['id'], it['title'] or '-', it['impact'] or '-', it['default'] or '-', it['fallback'] or '-', cands or '-']))
+        print(' | '.join([it['id'], it['title'] or '-', it['impact'] or '-', it['ask'] or '-', cands or '-']))
+        if it['question']:
+            print('   └ 담당자 질문: %s' % it['question'])
     print('미답 %d건 · 답변됨 %d건' % (len(rows), done))
 
 

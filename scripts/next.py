@@ -100,7 +100,7 @@ PHASE_TODO = {
                 '`python3 scripts/preflight.py --require <필수 파일>` exit 0 확인',
                 'README 실행 명령을 실제로 치고 TASK.md 가정 동기화'],
     '120–130': ['설명할 수 있는 규칙만 추가(테스트 먼저 FAIL)',
-                '`decisions/pending.md` 미답 항목 0 확인(기본값 적용 표시)',
+                '`decisions/pending.md` 미답 항목 0 확인(전부 사람이 답함)',
                 '단계 폴더 verify.json 갱신'],
     '130–144': ['`python3 scripts/preflight.py --require <필수 파일>` FAIL 0',
                 '심사자 시뮬레이션 1회(docs/judge_simulation.md, 별도 read-only 세션) → 미충족 보완',
@@ -284,7 +284,27 @@ def milestone(elapsed):
     return {'name': '제출', 'at': 170, 'remain_min': 170 - elapsed}
 
 
-def recommend(elapsed, key, rules, tests, record_age):
+def read_pending(root):
+    """decisions/pending.md 의 미답 결정 ID 와 담당자 확인 필요 ID. 파일이 없으면 빈 목록."""
+    path = os.path.join(root, 'decisions', 'pending.md')
+    out = {'open': [], 'ask': []}
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding='utf-8', errors='replace') as fh:
+        text = fh.read()
+    for block in re.split(r'(?m)^(?=## D\d+)', text):
+        m = re.match(r'## (D\d+)\b(.*)', block)
+        if not m or '(예시' in m.group(2):
+            continue
+        if re.search(r'(?m)^- \[[xX]\]', block):
+            continue
+        out['open'].append(m.group(1))
+        if re.search(r'담당자 확인:\s*필요', m.group(2)):
+            out['ask'].append(m.group(1))
+    return out
+
+
+def recommend(elapsed, key, rules, tests, record_age, pending=None):
     """추천 3개. 순서: 고정 (1) → 기록 경과 → 규칙 FAIL/NOT_RUN → 테스트·디버그 신호 → 구간 기본."""
     items = []
 
@@ -296,6 +316,9 @@ def recommend(elapsed, key, rules, tests, record_age):
         add(FIRST_FREEZE)
     elif elapsed >= 144:
         add(FINAL_FREEZE)
+    if pending and pending['open']:
+        ask = ' (담당자 확인 필요: %s)' % '·'.join(pending['ask']) if pending['ask'] else ''
+        add('결정 대기 %s%s → decisions/pending.md 에 [x] 또는 decide.py(사람이 실행). 그 결정에 기대는 작업은 답 전까지 보류' % ('·'.join(pending['open']), ask))
     if record_age is not None and record_age > 20:
         add('기록: `python3 scripts/debug_dir.py NN_단계명` 폴더에 red/green/verify 남기기 (마지막 기록 %d분 전)' % record_age)
     elif record_age is None and elapsed >= 30:
@@ -333,7 +356,8 @@ def build(root, start=None, now=None, tests_arg=None, use_records=True):
     tests = read_tests(root, tests_arg)
     record_age = last_record_minutes(root, now) if use_records else None
     ms = milestone(elapsed)
-    recs = recommend(elapsed, key, rules, tests, record_age)
+    pending = read_pending(root)
+    recs = recommend(elapsed, key, rules, tests, record_age, pending)
     waiting = WAITING.get(key, '')
 
     if not rules['found']:
@@ -356,7 +380,7 @@ def build(root, start=None, now=None, tests_arg=None, use_records=True):
     return {
         'start': start, 'now': now.strftime('%H:%M'), 'elapsed_min': elapsed,
         'phase': {'key': key, 'name': name, 'tag': phase_tag(name), 'from': p_from, 'until': p_until},
-        'milestone': ms, 'rules': rules, 'tests': tests, 'last_record_min': record_age,
+        'milestone': ms, 'rules': rules, 'tests': tests, 'last_record_min': record_age, 'pending': pending,
         'no_new_approach': elapsed >= 80, 'recommendations': recs, 'waiting': waiting,
         'lines': [line1, line2, line3],
     }

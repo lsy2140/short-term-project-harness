@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """scripts/decide.py 테스트 (unittest, Python 3.9). 실행: python3 -m unittest tests.test_decide -v
-분류: 파싱(제목·영향·기본값·시각·후보 3개·추천·기타·답변됨) / 기록(pending [x]·answers 줄 형식·기타 채움·이미 답한 항목·없는 ID·빈 선택) /
+분류: 파싱(제목·영향·담당자 확인·담당자 질문·후보 3개·추천·기타·답변됨·옛 형식 무시) / 기록(pending [x]·answers 줄 형식·기타 채움·이미 답한 항목·없는 ID·빈 선택) /
       파일 계약(키트의 decisions/pending.md·answers.md) / 서버(임시 포트: GET / 200 · POST 200 · 깨진 POST 400 · 경로 탈출 403 · CSS 200)."""
 import os
 import re
@@ -32,18 +32,19 @@ import decide  # noqa: E402
 SAMPLE = '''# 결정 대기함
 형식 설명 줄 — 항목 밖의 `- [ ]` 는 무시된다.
 
-## D07 심한 정도 계산식   (영향: 정렬·상위5 | 기본값: A | 안 정하면: 63분에 A 로 진행)
+## D07 심한 정도 계산식   (영향: 정렬·상위5 | 담당자 확인: 필요)
 - [ ] A. 최대 이탈률 — 담당자 "많이 벗어난 것부터"에 가장 가까움 (추천)
 - [ ] B. 평균 이탈률 — 튀는 값에 둔감하지만 짧은 위험을 낮게 봄
 - [ ] C. 기타: ____
+담당자 질문: 한 번 크게 벗어난 것과 오래 벗어난 것 중 무엇을 먼저 보시나요? (계산식을 정하려고요)
 메모:
 
-## D08 시간대 처리   (영향: 모든 시각 열 | 기본값: B | 안 정하면: 70분에 B 로 진행)
+## D08 시간대 처리   (영향: 모든 시각 열 | 담당자 확인: 필요)
 - [ ] A. UTC 로 통일
 - [x] 반영 10:35 B. KST 로 통일 (추천)
 메모: 담당자가 KST 라고 답함
 
-## D09 (예시) 반올림 자리   (영향: 출력 숫자 | 기본값: A | 안 정하면: 80분에 A 로 진행)
+## D09 (예시) 반올림 자리   (영향: 출력 숫자 | 담당자 확인: 불필요 — 기술 선택)
 - [ ] A. 소수 둘째 자리 (추천)
 - [ ] B. 정수
 메모:
@@ -76,12 +77,14 @@ class TestParsePending(unittest.TestCase):
     def test_three_items_found_and_header_lines_ignored(self):
         self.assertEqual([it['id'] for it in self.items], ['D07', 'D08', 'D09'])
 
-    def test_title_impact_default_fallback(self):
+    def test_title_impact_ask_question(self):
         it = self.by_id['D07']
         self.assertEqual(it['title'], '심한 정도 계산식')
         self.assertEqual(it['impact'], '정렬·상위5')
-        self.assertEqual(it['default'], 'A')
-        self.assertEqual(it['fallback'], '63분에 A 로 진행')
+        self.assertEqual(it['ask'], '필요')
+        self.assertTrue(it['question'].startswith('한 번 크게 벗어난 것과'))
+        self.assertNotIn('default', it)          # 기본값 필드 자체가 없다(결정은 항상 사람)
+        self.assertNotIn('fallback', it)
         self.assertEqual(it['memo'], '')
         self.assertFalse(it['answered'])
 
@@ -105,8 +108,22 @@ class TestParsePending(unittest.TestCase):
     def test_title_with_parentheses_keeps_meta_parsing(self):
         it = self.by_id['D09']
         self.assertEqual(it['title'], '(예시) 반올림 자리')
-        self.assertEqual(it['default'], 'A')
-        self.assertEqual(it['fallback'], '80분에 A 로 진행')
+        self.assertTrue(it['ask'].startswith('불필요'))
+        self.assertEqual(it['question'], '')
+
+    def test_old_default_fields_are_ignored(self):
+        old = '## D01 옛 형식   (영향: 정렬 | 기본값: A | 안 정하면: 63분에 A 로 진행)\n- [ ] A. 가 (추천)\n- [ ] B. 나\n메모:\n'
+        it = decide.parse_pending(old)[0]
+        self.assertEqual((it['title'], it['impact'], it['ask']), ('옛 형식', '정렬', ''))
+        self.assertFalse(it['answered'])          # 시간이 지나도 답한 것으로 보지 않는다
+
+    def test_form_shows_question_and_no_default(self):
+        page = decide.render_page(self.items)
+        self.assertIn('담당자에게 먼저 물어보기', page)
+        self.assertIn('한 번 크게 벗어난 것과', page)
+        self.assertNotIn('기본값', page)
+        self.assertNotIn('안 정하면', page)
+        self.assertEqual(page.count('담당자에게 먼저 물어보기'), 1)   # D09(불필요)·D08(답변됨)에는 없음
 
     def test_unanswered_skips_answered(self):
         self.assertEqual([it['id'] for it in decide.unanswered(self.items)], ['D07', 'D09'])
@@ -210,12 +227,18 @@ class TestKitFiles(unittest.TestCase):
         for it in items:
             with self.subTest(item=it['id']):
                 self.assertTrue(it['title'], '제목 없음')
-                self.assertTrue(it['default'] and it['fallback'], "기본값과 '안 정하면' 시각은 필수")
+                self.assertTrue(it['ask'] == '필요' or it['ask'].startswith('불필요'), "'담당자 확인: 필요|불필요' 필수: %r" % it['ask'])
+                if it['ask'] == '필요':
+                    self.assertTrue(it['question'], '담당자 확인이 필요하면 담당자 질문 줄 필수')
                 keys = [c['key'] for c in it['candidates']]
                 self.assertTrue(2 <= len(keys) <= 4, '후보는 2~4개: %s' % keys)
                 self.assertEqual(len(keys), len(set(keys)), '후보 키 중복: %s' % keys)
-                self.assertIn(it['default'], keys, '기본값 %r 이 후보 키에 없음' % it['default'])
                 self.assertEqual(sum(1 for c in it['candidates'] if c['recommended']), 1, '추천은 정확히 1개')
+
+    def test_kit_pending_has_no_auto_decision_fields(self):
+        text = decide.read_text(os.path.join(ROOT, 'decisions', 'pending.md'))
+        self.assertNotIn('기본값:', text)
+        self.assertNotIn('안 정하면:', text)
 
     def test_kit_answers_header_and_lines_parse(self):
         text = decide.read_text(os.path.join(ROOT, 'decisions', 'answers.md'))
