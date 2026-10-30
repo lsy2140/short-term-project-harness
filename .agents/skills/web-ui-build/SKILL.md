@@ -15,7 +15,7 @@ description: 웹 화면(대시보드·운영자 콘솔·조회 도구·랜딩·�
 5. **품질 바닥**(기능이 돌면 바로):
    - 접근성 3: h1 1개 + 제목 단계 순서 / 모든 input 에 label / 상태는 색 + 글자(배지 텍스트).
    - 보안 3: 정적 파일은 지정 폴더 밖 경로 탈출 차단(`..` 정규화 후 prefix 검사, 403/404) / 모든 데이터 문자열은 `esc()` 로 HTML 이스케이프 / 입력은 길이·허용값 검증 후 400 명시 거부. ID·토큰이 필요하면 `secrets.token_hex`, 예측 가능한 난수 금지.
-   - 서버는 `0.0.0.0` + `PORT` 환경변수, 잘못된 JSON POST → 400, `scripts/smoke_web.py` 로 확인.
+   - 서버는 `0.0.0.0` + `PORT` 환경변수, 잘못된 JSON POST → 400. 서버는 직접 띄우지 말고 실행 명령을 사람에게 준다(AGENTS 1절 11). 띄웠다는 답을 받으면 `scripts/smoke_web.py` 로 확인.
 6. **ui_check PASS**: `python3 design-kit/ui_check.py http://127.0.0.1:$PORT/` (페이지마다). FAIL 0 이 될 때까지 고친다. WARN 은 사유를 DECISIONS.md 에 적는다.
 7. **HUMAN_CHECK**: 사람이 미리보기에서 데스크톱 1회·창 폭 390px 1회. DESIGN.md 의 4질문(폴드 안 핵심 1개 / 제목 3단 구분 / 상태색+글자 / 가로 스크롤 없음)에 답하고 DECISIONS.md 에 `HUMAN_CHECK PASS(시각)` 로 기록. 가로 스크롤이 있으면 `minmax(0,…)`·`overflow-x:auto` 로 고친다.
 8. **스크린샷·기록**: 헤드리스 크롬이 있으면 DESIGN.md 의 조건부 명령으로 `screenshots/desktop.png`, `screenshots/mobile.png` 저장(없으면 NOT_RUN 기록). 디버그 폴더 verify.json 에 ui_check·HUMAN_CHECK 결과를 적는다.

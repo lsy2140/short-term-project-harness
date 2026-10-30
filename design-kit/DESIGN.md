@@ -17,7 +17,7 @@
 ```
 cp design-kit/tokens.css design-kit/base.css design-kit/components.css ./static/      # ① 복사 (경로는 과제 구조대로)
 cp design-kit/templates/dashboard.html ./static/index.html                            #    가장 가까운 템플릿 1개
-python3 design-kit/serve.py 8000 --dir ./static  # 또는 과제 서버                      # ② 미리보기에 뭔가 렌더 (T+30 안)
+python3 design-kit/serve.py 8000 --dir ./static  # 또는 과제 서버 — 사람이 다른 터미널에서 실행(AGENTS 1절 11)  # ② 미리보기에 뭔가 렌더 (T+30 안)
 python3 design-kit/ui_check.py http://127.0.0.1:8000/                                 # ⑤ FAIL 0 까지
 python3 scripts/smoke_web.py http://127.0.0.1:8000 --path /api/items                  #    서버 계약
 ```
@@ -44,7 +44,7 @@ Git Bash 주의: `--path /data.json` 처럼 `/` 로 시작하는 인자는 `MSYS
 목표: 설비 상태 대시보드 1페이지(README 3.2 "운영자 화면" 요구 충족)
 범위: design-kit/templates/dashboard.html 을 static/index.html 로 복사해 /api/status 응답을 매핑. 새 화면·새 기능 없음
 제약: tokens.css 변수만(raw hex·외부 URL·라이브러리 0), 반경은 --r-* 만, 상태색 매핑 ok/warn/bad/info/off 고정,
-      진입 애니메이션 없음(hover·active 만), 390px 에서 1열, 모든 문자열 esc(), 서버 0.0.0.0:$PORT
+      진입 애니메이션 없음(hover·active 만), 390px 에서 1열, 모든 문자열 esc(), 서버 0.0.0.0:$PORT(실행 명령은 나에게 줘 — 직접 띄우지 마)
 스타일: Stripe 대시보드식 흰 카드 + tabular 숫자. 히어로 없음, KPI 4개가 첫 줄, 표는 Linear 밀도
 완료 조건: ui_check.py FAIL 0 · h1 1개/h2 4개 · smoke_web PASS · 매핑 표가 DECISIONS.md 1번에 있음
 검증: python3 design-kit/ui_check.py http://127.0.0.1:$PORT/ ; python3 scripts/smoke_web.py http://127.0.0.1:$PORT --path /api/status

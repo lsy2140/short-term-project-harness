@@ -8,7 +8,7 @@ description: 이미 만들어 돌아가는 웹 화면(대시보드·운영자 �
 목표: 돌아가는 화면을 **기능·문구 사실을 바꾸지 않고** 운영 화면답게 다듬는다. 만들기는 `web-ui-build`, 여기는 비평·수정. 원칙은 "Operate 모드는 절제가 야심"(`references/impeccable-audit.md` 0절): 운영 화면은 표·숫자·상태가 주인공이고 장식은 뺀다.
 
 ## 절차
-1. **렌더 확인**: 서버가 떠 있으면 헤드리스 크롬(`design-kit/DESIGN.md` 7절 명령)으로 1280·390 캡처. 크롬이 없으면 `NOT_RUN` 으로 적고 사람의 HUMAN_CHECK(DESIGN.md 6절 4질문)를 1단계 증거로 쓴다.
+1. **렌더 확인**: 사람이 서버를 띄워 두었으면(직접 띄우지 않는다 — AGENTS 1절 11) 헤드리스 크롬(`design-kit/DESIGN.md` 7절 명령)으로 1280·390 캡처. 크롬이 없으면 `NOT_RUN` 으로 적고 사람의 HUMAN_CHECK(DESIGN.md 6절 4질문)를 1단계 증거로 쓴다.
 2. **Floor 16 체크**: `references/hallmark-floor.md` 1절 표의 '우리 키트에서' 열대로 — ui_check 가 잡는 항목은 `python3 design-kit/ui_check.py <URL|파일>` 출력을 그대로 인용하고, 사람이 보는 항목은 캡처·HUMAN_CHECK 로 답한다. 2절 Reflex 12 는 해당하는 것만.
 3. **Impeccable 순서 점검**: `references/impeccable-audit.md` 2절 — 위계 → 간격 → 상태 → 문구 → 반응형. 단계마다 1~3줄, 발견이 없으면 '없음'. 4절 harden 으로 빈·오류·긴 문자열·느린 상태를 한 번씩 만들어 본다.
 4. **위반 표**: 심각도순 `P0 작업 불가 / P1 접근성·가독(WCAG AA) / P2 불편 / P3 다듬기`, 열은 `심각도 | 좌표(파일:줄 또는 CSS 선택자) | 무엇이 | 수정안(토큰·클래스 이름으로)`. P3 는 5개 이하.

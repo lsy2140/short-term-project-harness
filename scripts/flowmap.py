@@ -12,7 +12,7 @@
 exit 0 생성 성공 / 1 스펙 오류 또는 합계 불일치(불일치는 'FAIL: 합계 불일치' 를 띠에 찍은 HTML 을 만든 뒤 1) / 2 스펙 파일 없음
 CSS 는 design-kit/tokens.css 값을 읽어 rgb() 로 바꿔 인라인 복사한다(외부 파일 참조 0 → 미리보기·제출물에서 단독으로 열림,
 ui_check 의 raw hex 검사도 통과). 모든 문자열은 html.escape. 생성 시각을 넣지 않아 같은 스펙이면 같은 HTML 이 나온다.
-미리보기: python3 design-kit/serve.py $PORT --dir out --index report.html  → 미리보기 탭에서 /report.html
+미리보기(사람이 다른 터미널에서 실행): python3 design-kit/serve.py $PORT --dir out --index report.html  → 미리보기 탭에서 /report.html
 """
 import argparse
 import html
@@ -543,7 +543,7 @@ def main(argv=None):
     with open(a.out, 'w', encoding='utf-8', newline='\n') as fh:
         fh.write(text)
     print(summary_line(spec, a.out, delta))
-    print('미리보기: python3 design-kit/serve.py $PORT --dir %s --index %s  → 미리보기 탭에서 /%s' % (
+    print('미리보기(사람이 다른 터미널에서 실행): python3 design-kit/serve.py $PORT --dir %s --index %s  → 미리보기 탭에서 /%s' % (
         os.path.dirname(a.out) or '.', os.path.basename(a.out), os.path.basename(a.out)))
     if delta:
         err('FAIL: 합계 불일치 — 입력 %s ≠ 통과 %s + 제외 %s (차이 %+d). 띠에 표시한 채 생성했습니다.' % (fmt(total), fmt(passed), fmt(excluded), delta))

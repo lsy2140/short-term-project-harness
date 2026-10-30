@@ -16,7 +16,7 @@
   지금: ⑤ 규칙 3/7 · 경과 74분 · 1차 동결까지 36분 · 마지막 기록 12분 전
   다음 추천: (1) … (2) … (3) …
   대기 중 할 일(사람): …
-구간 경계는 timer.py 의 PHASES 를 그대로 쓰고, 대기 중 문구는 RUN.md 구간표의 마지막 열과 글자 그대로 같다
+구간 경계는 이 파일의 PHASES(RUN.md 구간표와 같은 경계)이고, 대기 중 문구는 RUN.md 구간표의 마지막 열과 글자 그대로 같다
 (tests/test_next.py 가 둘 다 대조한다).
 exit 0: 출력함(시작 시각이 없어도 안내 후 0) / exit 2: 인자 형식 오류
 """
@@ -35,11 +35,27 @@ try:
 except Exception:  # noqa
     pass
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
+# 구간표(경과 분 기준). RUN.md 구간표의 첫 열과 같은 경계다.
+PHASES = [
+    (0, 10, '① 읽기 — README·파일·형식 (코드 금지)'),
+    (10, 30, '② 계약·인터뷰 — TASK.md, 담당자 질문, 합의문'),
+    (30, 63, '④ 첫 완주 — 가장 작은 end-to-end + 첫 기록(out/debug/01_첫완주)'),
+    (63, 110, '⑤ 규칙·검증 — 규칙 1개 = 테스트 1개, 엣지케이스, 디버그 폴더 기록 (80분 이후 새 접근 금지)'),
+    (110, 120, '1차 동결 — 지금 제출해도 되는 상태: preflight 0 · README 명령 실행 · preflight --freeze 복구본'),
+    (120, 130, '⑤ 규칙·검증 계속 — 설명할 수 있는 것만 추가'),
+    (130, 144, '점검 — preflight FAIL 0, 심사자 시뮬레이션, PLAN 초안'),
+    (144, 165, '⑥ 동결 — 문서 정리(증거 좌표), HANDOFF.md, 한계 기록, /review'),
+    (165, 170, '최종 — 증거 좌표 재점검, preflight 재실행, 저장 상태 확인'),
+    (170, 999, '제출 — 제출하고 문제풀기 → 확정'),
+]
 
-from timer import PHASES, phase_of  # noqa: E402  (구간 경계의 단일 출처)
+
+def phase_of(elapsed):
+    for a, b, name in PHASES:
+        if a <= elapsed < b:
+            return name, b
+    return PHASES[-1][2], 999
+
 
 # RUN.md 구간표의 '대기 중 사람이 할 일' 열. 키는 RUN.md 첫 열(경과)과 같은 글자(–는 U+2013).
 # 문구를 고칠 때는 RUN.md 를 먼저 고치고 여기를 맞춘다 — tests/test_next.py 가 불일치를 FAIL 로 잡는다.
@@ -67,7 +83,7 @@ NO_NEW_APPROACH = '새 접근 금지(80분 이후: 라이브러리·구조 변�
 PHASE_TODO = {
     '0': ['README 정독(코드 금지) → 한 문장 목표',
           '하네스 복사 5분 이내 · TASK.md 머리에 `시작: HH:MM`',
-          '터미널 3에 `python3 scripts/timer.py --start HH:MM --loop 300`'],
+          '보고마다 `python3 scripts/next.py` 로 지금 구간·다음 추천 확인'],
     '0–10': ['README·파일 목록·데이터 형식·제출물·평가 기준 읽기(코드 금지) · P0 10항목',
              '`python3 scripts/eda_bootstrap.py <데이터 파일>` 로 데이터 첫 파악',
              'TASK.md 1번(사실)에 제출 파일명·형식을 원문 그대로'],

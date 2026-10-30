@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """scripts/next.py 계약 테스트 (unittest, Python 3.9). 실행: python3 -m unittest tests.test_next -v
-분류: 구간 경계 == timer.PHASES / 대기 중 문구 == RUN.md 구간표 마지막 열 / 시작 없음 안내 /
-80분·100~120분·144분 추천 규칙 / 기록 경과·NOT_RUN 규칙 이름 / 규칙표 파싱 / --json / timer --once."""
+분류: 구간 경계 / 대기 중 문구 == RUN.md 구간표 마지막 열 / 시작 없음 안내 /
+80분·100~120분·144분 추천 규칙 / 기록 경과·NOT_RUN 규칙 이름 / 규칙표 파싱 / --json."""
 import json
 import os
 import re
@@ -24,7 +24,6 @@ SCRIPTS = os.path.join(ROOT, 'scripts')
 if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 
-import timer  # noqa: E402
 import next as nextmod  # noqa: E402
 
 ENV = dict(os.environ, PYTHONIOENCODING='utf-8')
@@ -83,24 +82,23 @@ class _TmpRoot(unittest.TestCase):
             fh.write(text)
 
 
-# ---------------------------------------------------------------- 구간 경계 == timer.PHASES
-class TestPhasesMatchTimer(unittest.TestCase):
-    def test_next_uses_the_same_phase_table_object_as_timer(self):
-        self.assertIs(nextmod.PHASES, timer.PHASES)
+# ---------------------------------------------------------------- 구간 경계
+class TestPhases(unittest.TestCase):
+    def test_phase_table_boundaries(self):
         self.assertEqual([(a, b) for a, b, _ in nextmod.PHASES],
                          [(0, 10), (10, 30), (30, 63), (63, 110), (110, 120), (120, 130), (130, 144), (144, 165), (165, 170), (170, 999)])
 
     def test_every_phase_has_waiting_text_and_default_todo(self):
-        for a, b, _ in timer.PHASES:
+        for a, b, _ in nextmod.PHASES:
             key = nextmod.phase_key(a, b)
             self.assertIn(key, nextmod.WAITING, key)
             self.assertIn(key, nextmod.PHASE_TODO, key)
             self.assertEqual(len(nextmod.PHASE_TODO[key]), 3, key)
 
-    def test_phase_boundaries_agree_with_timer_phase_of(self):
+    def test_phase_boundaries_agree_with_phase_of(self):
         for elapsed in (0, 9, 10, 62, 63, 109, 110, 119, 120, 143, 144, 164, 165, 169, 170, 200):
             key, name, _, _ = nextmod.current_phase(elapsed)
-            self.assertEqual(name, timer.phase_of(elapsed)[0], elapsed)
+            self.assertEqual(name, nextmod.phase_of(elapsed)[0], elapsed)
             a, b = (int(x) for x in key.split('–')) if '–' in key else (int(key), 999)
             self.assertTrue(a <= elapsed < b, '%d분 → %s' % (elapsed, key))
 
@@ -258,7 +256,7 @@ class TestInputs(_TmpRoot):
         self.assertIn('기록 없음', data['lines'][0])
 
 
-# ---------------------------------------------------------------- --json 과 timer --once
+# ---------------------------------------------------------------- CLI (--json·평문·--help)
 class TestCli(_TmpRoot):
     def test_json_output_parses_and_matches_lines(self):
         self.write('TASK.md', '# TASK\n시작: 09:00\n')
@@ -281,15 +279,6 @@ class TestCli(_TmpRoot):
 
     def test_help_exits_0(self):
         self.assertEqual(run_cli('--help').returncode, 0)
-
-    def test_timer_once_prints_once_and_appends_next_lines(self):
-        cmd = [sys.executable, os.path.join(SCRIPTS, 'timer.py'), '--start', '09:00', '--once', '--loop', '300']
-        done = subprocess.run(cmd, cwd=self.root, capture_output=True, text=True, encoding='utf-8', errors='replace', env=ENV, timeout=30)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertEqual(done.stdout.count('구간 끝 3질문'), 1)
-        self.assertIn('지금: ', done.stdout)
-        self.assertIn('다음 추천: ', done.stdout)
-        self.assertIn('대기 중 할 일(사람): ', done.stdout)
 
 
 if __name__ == '__main__':

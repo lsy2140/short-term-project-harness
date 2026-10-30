@@ -30,7 +30,7 @@ python3 scripts/prompt.py --all      # 전체 본문
 - 키워드: 첫 프롬프트, 세션 시작, AGENTS, 시작 시각, 계약
 ```
 AGENTS.md를 읽고 이 세션의 규약으로 써. 코드는 아직 쓰지 마.
-TASK.md 머리에 `시작: [HH:MM]` 을 적어. 타이머 명령(python3 scripts/timer.py --start [HH:MM] --loop 300)을 첫 보고에 그대로 출력해.
+TASK.md 머리에 `시작: [HH:MM]` 을 적어.
 README와 파일 목록, 데이터 형식, 제출물 형식을 읽고 TASK.md의 한 문장·P0·1~5번을 채워 보여줘. README에 없는 항목은 추측하지 말고 3번(열린 질문)에 올려.
 업무 담당자에게 물어볼 질문 5~8개를 docs/stakeholder_interview.md 순서로 만들어. 번호를 붙이고, 한 번호에 한 주제만, 질문마다 괄호로 왜 묻는지 한 줄.
 끝에 사용 가능한 스킬 이름을 한 줄로 덧붙이고, 보고는 꼬리 3줄(지금 / 다음 추천 / 대기 중 할 일)로 끝내.
@@ -136,7 +136,7 @@ README에 이미 답이 있는 것은 빼. 끝에 되묻기 후보 2개.
 ```
 $web-ui-build design-kit/DESIGN.md를 읽고 design-kit/templates/[dashboard|console|landing|mobile].html을 app/로 복사해 더미 데이터로 먼저 렌더해.
 로직은 solve()에, 서버는 I/O만(http.server, 0.0.0.0, PORT 환경변수 기본 8000). 토큰 변수만 사용, 새 색·외부 URL·라이브러리 금지. 잘못된 JSON 400, 경로 탈출 403.
-완료 조건: python3 scripts/with_server.py --server "PORT=8000 python3 app.py" --port 8000 -- python3 scripts/smoke_web.py http://127.0.0.1:8000 --path /api/[..] 가 PASS. 내가 미리보기 탭에서 포트 8000을 열어 빈 화면이라도 확인하면 HUMAN_CHECK 로 DECISIONS.md 6번에 시각을 적어.
+서버는 띄우지 말고 실행 명령을 나에게 줘(내가 다른 터미널에서 띄운다). 완료 조건: 내가 띄웠다고 하면 python3 scripts/smoke_web.py http://127.0.0.1:8000 --path /api/[..] 가 PASS. 내가 미리보기 탭에서 포트 8000을 열어 빈 화면이라도 확인하면 HUMAN_CHECK 로 DECISIONS.md 6번에 시각을 적어.
 로그인·회원가입·결제는 만들지 말고 목업 표시로. 데이터 연결은 다음 턴.
 ```
 - 막는 실수: 마지막에 몰아서 화면을 띄우려다 죽는 것(1위 실패 사유)과 로직과 서버를 섞어 테스트가 불가능해지는 것.

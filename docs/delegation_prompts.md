@@ -5,7 +5,7 @@
 ## 0. 첫 프롬프트 (세션 시작)
 ```
 AGENTS.md를 읽고 이 세션의 규약으로 써. 코드는 아직 쓰지 마.
-TASK.md 머리에 `시작: HH:MM` 을 적고, 타이머 명령(python3 scripts/timer.py --start HH:MM --loop 300)을 첫 보고에 그대로 출력해.
+TASK.md 머리에 `시작: HH:MM` 을 적어.
 README와 파일 목록, 데이터 형식, 제출물 형식을 읽고 TASK.md의 한 문장·P0·1~5번을 채워 보여줘.
 업무 담당자에게 물어볼 질문 5~8개를 docs/stakeholder_interview.md 순서로 만들어. 번호를 붙이고 한 번호에 한 주제, 질문마다 괄호로 왜 묻는지 한 줄. 끝에 사용 가능한 스킬 이름을 한 줄로 덧붙여.
 보고는 꼬리 3줄(지금 / 다음 추천 / 대기 중 할 일)로 끝내.
@@ -60,7 +60,7 @@ scripts/check_contract.py의 RULES와 recompute_expected를 이 과제 규칙으
 ```
 design-kit/DESIGN.md를 읽어. design-kit/templates/<dashboard|console|landing|mobile>.html을 app/로 복사해 data.json 대신 /api/... 응답을 렌더하게 바꿔.
 로직은 solve()에 두고 서버는 I/O만(http.server, 0.0.0.0, PORT). 토큰 변수만 사용, 외부 URL 금지, 잘못된 JSON 400, 경로 탈출 403.
-완료 조건: python3 scripts/with_server.py --server "PORT=8000 python3 app.py" --port 8000 -- python3 scripts/smoke_web.py http://127.0.0.1:8000 --path /api/... 가 PASS.
+서버는 띄우지 말고 실행 명령을 나에게 줘(내가 다른 터미널에서 띄운다). 완료 조건: 내가 띄웠다고 하면 python3 scripts/smoke_web.py http://127.0.0.1:8000 --path /api/... 가 PASS.
 ```
 
 ## 7. 동결 구간 문서

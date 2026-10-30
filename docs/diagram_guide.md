@@ -32,7 +32,7 @@ python3 scripts/flowmap.py                     # docs/flow.json → out/report.h
 
 ## 3. flowmap — 미리보기·검사
 ```
-python3 design-kit/serve.py $PORT --dir out --index report.html     # 별도 터미널. 미리보기 탭에 포트 입력 → /report.html
+python3 design-kit/serve.py $PORT --dir out --index report.html     # 사람이 별도 터미널에서 실행(Codex 는 명령만 준다). 미리보기 탭에 포트 입력 → /report.html
 python3 design-kit/ui_check.py out/report.html --tokens design-kit/tokens.css   # 구조·접근성·토큰·대비 FAIL 0 (URL 모드로 보면 "tokens.css linked" WARN 1건은 정상 — 토큰을 인라인한 설계)
 ```
 report.html 은 CSS(design-kit 토큰 값을 rgb() 로 복사)까지 든 단독 파일이라 제출물에 그대로 들어가고 외부 자원이 없다. 640px 이하에서는 파이프라인이 세로로 바뀐다. 링크는 report.html 위치 기준 상대경로라 `out/` 에서 열어야 맞는다.
