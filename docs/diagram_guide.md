@@ -4,7 +4,7 @@
 
 | | 메인 세션(해결자) | 보고서 세션(`$stage-report`) | `$archify` |
 |---|---|---|---|
-| 무엇 | 구현·테스트·디버그 폴더 기록 | 끝난 단계 묶음의 검증 보고서 `out/report/stage_NN-MM.html` + `index.html` | 구조도 `docs/diagrams/*.html` |
+| 무엇 | 구현·테스트·디버그 폴더 기록 | 끝난 단계 묶음의 검증 보고서 `out/report/stage_NN-MM.html` + `index.html`, 동결 구간의 최종 구현 종합정리 `implementation_summary.md` | 구조도 `docs/diagrams/*.html` |
 | 쓰는 곳 | 코드·tests·docs·TASK/PLAN/DECISIONS·out/debug | **`out/report/` 만** | `docs/diagrams/`·`.archify/` |
 | 입력 | README·담당자 답·데이터 | `out/debug/NN_*/verify.json`·green.txt·PLAN 4번·DECISIONS·코드 위치(grep) | 저장소(`--repo-root .`) |
 | 비용 | — | 묶음당 1~2턴(읽기 + flowmap). 테스트·서버 실행 없음 | 1장당 1~2턴·30~60k 토큰 |

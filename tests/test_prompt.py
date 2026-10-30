@@ -24,9 +24,9 @@ _spec = importlib.util.spec_from_file_location('kit_prompt', SCRIPT)
 prompt_cli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(prompt_cli)
 
-# 개선계획 6절: 킥오프 3 · 인터뷰 4 · 첫 완주 3 · 규칙 구현 5 · 캐내기 2 · 디버그 2 · 문서 3 · 심사자 1 · 서술형 2 = 25 + 보고서 1(10/30) = 26
+# 개선계획 6절: 킥오프 3 · 인터뷰 4 · 첫 완주 3 · 규칙 구현 5 · 캐내기 2 · 디버그 2 · 문서 3 · 심사자 1 · 종합정리 2 = 25 + 보고서 1(10/30) = 26
 EXPECTED_SECTIONS = [('킥오프', 3), ('인터뷰', 4), ('첫 완주', 3), ('규칙 구현', 5), ('캐내기', 2),
-                     ('디버그', 2), ('문서', 3), ('심사자', 1), ('서술형', 2), ('보고서', 1)]
+                     ('디버그', 2), ('문서', 3), ('심사자', 1), ('종합정리', 2), ('보고서', 1)]
 UNIQUE_KEYWORD = '트레이스백'   # 18번에만 있는 키워드
 UNIQUE_KEYWORD_NUM = 18
 AMBIGUOUS_KEYWORD = '인터뷰'    # 구간 이름이라 4개가 걸린다
