@@ -89,7 +89,7 @@ python3 design-kit/serve.py $PORT --dir out/report --index index.html           
 보고서는 CSS(design-kit 토큰 값을 rgb() 로 복사)까지 든 단독 파일이라 제출물에 그대로 들어가고 외부 자원이 없다. 640px 이하에서는 파이프라인이 세로, 차트가 1열로 바뀐다. 링크는 보고서 위치 기준 상대경로라 `out/report/` 에서 열어야 맞는다.
 
 ## 6. archify — 구조도 (선택)
-사전 체험에서 `node -v` 가 18 이상이면 `node .agents/skills/archify/bin/archify.mjs doctor` 를 한 번 돌린다(RUN.md -15 ⑧). 실패하면 `archify` 스킬 폴더를 지운다. **사용 시점 제한은 없다.** 권장: 10~30분 dataflow 1장으로 담당자와 흐름 확인 → 63분 첫 완주 뒤 `--repo-root .` architecture → 동결 때 갱신 → 서술형 준비에 sequence/lifecycle. 출력 `docs/diagrams/`, 후보 `.archify/`(제출물 아님). 보고서 세션에서 돌려도 된다(쓰는 곳이 `docs/diagrams/` 라 메인과 겹치지 않음).
+사전 체험에서 `node -v` 가 18 이상이면 `node .agents/skills/archify/bin/archify.mjs doctor` 를 한 번 돌린다(RUN.md -15 ⑧). 실패하면 `archify` 스킬 폴더를 지운다. **사용 시점 제한은 없다.** 권장: 10~30분 dataflow 1장으로 담당자와 흐름 확인 → 63분 첫 완주 뒤 `--repo-root .` architecture → 동결 때 갱신 → 최종 구현 종합정리에 sequence/lifecycle. 출력 `docs/diagrams/`, 후보 `.archify/`(제출물 아님). 보고서 세션에서 돌려도 된다(쓰는 곳이 `docs/diagrams/` 라 메인과 겹치지 않음).
 
 ## 7. 폴백과 역할 분리
 보고서 세션을 열 여유가 없으면 메인 세션에 "여기서 `$stage-report 1-3` 해" 라고 명시해 같은 세션에서 만든다(시간이 든다는 것만 안다). Node 가 없으면 archify 없이 flowmap 만으로 충분하다. 심사자가 묻는 "몇 건이 어디서 빠졌나·규칙이 발동했나·무엇을 검증했나"는 보고서가 답하고, archify 는 "구조가 왜 이런가"를 보탠다. README 데모 순서에는 `out/report/index.html` 먼저, `docs/diagrams/` 다음으로 링크한다.
