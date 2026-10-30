@@ -13,3 +13,5 @@ design-kit/DESIGN.pdf
 .tmp/
 .archify/
 *.stackdump
+docs/submission_checklist.md
+docs/bash_cheatsheet.md

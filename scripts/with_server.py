@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """with_server.py — 서버를 띄우고 포트가 열릴 때까지 기다린 뒤 명령을 실행하고 서버를 정리한다. (표준 라이브러리, Py3.9)
-원본: https://github.com/anthropics/skills  skills/webapp-testing/scripts/with_server.py
-      Copyright 2026 Anthropic, PBC — Apache License 2.0 (전문: LICENSES/Apache-2.0.txt)
-변경 고지(Apache-2.0 제4조 (b)): 이 파일은 원본을 수정했다 — 단일 서버로 축약, PORT 환경변수 전달,
-      Windows 프로세스 트리 정리(taskkill /T), 한국어 안내 문구. 변경 부분도 Apache License 2.0 으로 배포한다.
+Based on skills/webapp-testing/scripts/with_server.py from https://github.com/anthropics/skills
+Copyright 2026 Anthropic, PBC. Licensed under the Apache License, Version 2.0 (see LICENSES/Apache-2.0.txt).
+Modified: single server, PORT passthrough, Windows process-tree cleanup, Korean messages.
 
   python3 scripts/with_server.py --server "python3 app.py" --port 8000 -- python3 scripts/smoke_web.py http://127.0.0.1:8000
   python3 scripts/with_server.py --server "PORT=8000 python3 app.py" --port 8000 -- python3 -m unittest tests.test_http -v

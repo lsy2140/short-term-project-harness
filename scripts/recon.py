@@ -133,7 +133,7 @@ def warnings(r):
     if not r['python']['match_stmt']:
         w.append('match 문·X|Y 타입 표기 불가(3.10 미만) → if/elif, Optional 사용')
     if not r['tools'].get('git'):
-        w.append('git 없음 → git clone 불가 → Plan C(README 의 웹 복사·붙여넣기)')
+        w.append('git 없음 → git clone 불가 → Plan C(RUN.md 막힘 결정 트리)')
     if not r['tools'].get('codex'):
         w.append('codex 명령이 PATH 에 없음 → 터미널에서 codex 실행 경로 확인')
     for m in ('pandas', 'numpy'):

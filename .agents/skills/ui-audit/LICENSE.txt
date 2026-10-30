@@ -1,19 +1,18 @@
-ui-audit 스킬 — 출처와 라이선스
-================================
+Third-party notices for the ui-audit skill
+===========================================
 
-이 스킬의 references/hallmark-floor.md 와 references/impeccable-audit.md 는 아래 두 공개 저장소의 문서를
-한국어로 번역·요약한 것이다. 원문(영문)은 복사하지 않았다(원문 미복사·번역 요약). 실행 스크립트
-(Hallmark sloplint.mjs, Impeccable 런처·detect)는 반입하지 않았다. 확인일: 2026-10-29.
+references/hallmark-floor.md and references/impeccable-audit.md are Korean
+translations and summaries of documents from the two projects below. No original
+text or scripts were copied. SKILL.md itself was written for this project (MIT).
 
-----------------------------------------------------------------------------------------------------
-1. Hallmark — MIT License
-----------------------------------------------------------------------------------------------------
-출처 URL : https://github.com/Nutlope/hallmark
-커밋     : 8f6969f8922caabde9de1784959eae11ddf68073 (2026-10-28)
-참조 파일: skills/hallmark/SKILL.md ("The Floor" 1~16), skills/hallmark/references/gates.md,
-           skills/hallmark/references/interaction-and-states.md,
-           skills/hallmark/references/macrostructures/04-stat-led.md, 05-workbench.md, 02-long-document.md
-라이선스 전문(저장소 LICENSE 사본, 원문 그대로):
+-------------------------------------------------------------------------------
+1. Hallmark (MIT License)
+-------------------------------------------------------------------------------
+Source:  https://github.com/Nutlope/hallmark
+Commit:  8f6969f8922caabde9de1784959eae11ddf68073
+Files:   skills/hallmark/SKILL.md, skills/hallmark/references/gates.md,
+         skills/hallmark/references/interaction-and-states.md,
+         skills/hallmark/references/macrostructures/{02-long-document,04-stat-led,05-workbench}.md
 
 MIT License
 
@@ -37,18 +36,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-----------------------------------------------------------------------------------------------------
-2. Impeccable — Apache License, Version 2.0
-----------------------------------------------------------------------------------------------------
-출처 URL : https://github.com/pbakaus/impeccable
-커밋     : 5e745ace7e151feb2a93d360d0281fe39448b857 (2026-10-28)
-참조 파일: .agents/skills/impeccable/reference/craft-floor.md, audit.md, critique.md, harden.md, mode-operate.md
-저작권   : Copyright 2025 Paul Bakaus
-라이선스 : Apache License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0
-           전문 사본은 저장소 루트의 LICENSES/Apache-2.0.txt 를 본다.
-변경 고지: Apache-2.0 4항에 따라 원 저작물을 수정(한국어 번역·요약)했음을 밝히고, 원 저작권 표시와 라이선스 고지를
-           유지한다. Impeccable 저장소의 NOTICE.md 는 reference/ios.md·android.md(ehmo/platform-design-skills, MIT)에
-           관한 것이며 이 스킬은 그 두 파일을 참조하지 않았다.
+-------------------------------------------------------------------------------
+2. Impeccable (Apache License 2.0)
+-------------------------------------------------------------------------------
+Source:  https://github.com/pbakaus/impeccable
+Commit:  5e745ace7e151feb2a93d360d0281fe39448b857
+Files:   .agents/skills/impeccable/reference/{craft-floor,audit,critique,harden,mode-operate}.md
+
+Copyright 2025 Paul Bakaus
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -61,3 +56,6 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Modified: translated and summarized (Apache License 2.0, Section 4(b)).
+A copy of the license is in LICENSES/Apache-2.0.txt in the repository root.
