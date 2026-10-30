@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""prompt.py — docs/프롬프트_예시.md 의 프롬프트 템플릿을 터미널에 찍는다(복사용 · 토큰 0).
+"""prompt.py — docs/prompt_examples.md 의 프롬프트 템플릿을 터미널에 찍는다(복사용 · 토큰 0).
 사용:
   python3 scripts/prompt.py              # 목록: 번호 · 제목 · 구간
   python3 scripts/prompt.py 11           # 11번 본문만 (복사해서 Codex 에 붙여넣는다)
   python3 scripts/prompt.py 트레이스백     # 키워드(제목·키워드·구간) 검색: 1개면 본문, 여러 개면 후보 목록
   python3 scripts/prompt.py --all        # 전체 본문 (번호·제목 머리 포함)
-  python3 scripts/prompt.py --file 경로  # 다른 md 파일을 읽는다 (기본: docs/프롬프트_예시.md)
+  python3 scripts/prompt.py --file 경로  # 다른 md 파일을 읽는다 (기본: docs/prompt_examples.md)
 문서 쪽 형식(tests/test_prompt.py 가 고정):
   ## N. 제목 / - 구간: … / - 키워드: a, b / ```본문``` / - 막는 실수: … / - 출처: …
   번호 없는 `## 절` 은 예시로 세지 않는다. 본문은 예시 안의 첫 코드 블록이다.
@@ -25,7 +25,7 @@ except Exception:  # noqa
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DEFAULT_DOC = os.path.join(ROOT, 'docs', '프롬프트_예시.md')
+DEFAULT_DOC = os.path.join(ROOT, 'docs', 'prompt_examples.md')
 
 HEAD_RE = re.compile(r'^## (\d+)\. (.+?)\s*$')
 OTHER_HEAD_RE = re.compile(r'^#{1,2} ')
@@ -117,18 +117,18 @@ def fmt_all(examples):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description='docs/프롬프트_예시.md 의 템플릿을 번호나 키워드로 찾아 본문만 출력한다(복사용).',
+        description='docs/prompt_examples.md 의 템플릿을 번호나 키워드로 찾아 본문만 출력한다(복사용).',
         epilog='예: python3 scripts/prompt.py 11 | python3 scripts/prompt.py 트레이스백 | python3 scripts/prompt.py --all')
     ap.add_argument('query', nargs='?', help='번호(11, 11번) 또는 키워드(제목·키워드·구간). 없으면 목록')
     ap.add_argument('--all', action='store_true', help='전체 본문을 번호·제목 머리와 함께 출력')
-    ap.add_argument('--file', default=DEFAULT_DOC, help='읽을 md 파일 (기본 docs/프롬프트_예시.md)')
+    ap.add_argument('--file', default=DEFAULT_DOC, help='읽을 md 파일 (기본 docs/prompt_examples.md)')
     args = ap.parse_args(argv)
 
     try:
         with open(args.file, 'r', encoding='utf-8') as fh:
             text = fh.read()
     except OSError as e:
-        print('파일을 열 수 없음: %s (%s) → docs/프롬프트_예시.md 가 있는지 확인하거나 --file 로 경로 지정' % (args.file, e),
+        print('파일을 열 수 없음: %s (%s) → docs/prompt_examples.md 가 있는지 확인하거나 --file 로 경로 지정' % (args.file, e),
               file=sys.stderr)
         return 1
     examples = parse_examples(text)

@@ -21,7 +21,7 @@ scripts/check_contract.py  출력을 입력에서 재계산해 대조하는 독�
 scripts/next.py            지금 구간·규칙 진행·다음 추천 3개·대기 중 할 일 — 보고 꼬리 3줄의 숫자 출처(AGENTS.md 7절)
 scripts/decide.py          decisions/pending.md 를 브라우저 폼(0.0.0.0·PORT)으로 띄워 answers.md 에 기록
 scripts/debug_dir.py       out/debug/NN_단계명 폴더 생성 + 파일 수 검사(폴더당 5파일, 전체 40파일; --check)
-scripts/prompt.py          구간별 프롬프트 템플릿을 터미널에 출력(docs/프롬프트_예시.md, 토큰 0)
+scripts/prompt.py          구간별 프롬프트 템플릿을 터미널에 출력(docs/prompt_examples.md, 토큰 0)
 scripts/flowmap.py         docs/flow.json → out/report.html(파이프라인 도식·합계 보존 띠·규칙 발동 건수·결정 목록·검증 결과)
 scripts/eda_bootstrap.py   CSV/JSON 첫 파악 요약 (Codex에는 이 요약만 읽힌다)
 scripts/make_edge_cases.py 아무 CSV에서 경계·오염 변형 파일 생성
@@ -33,7 +33,7 @@ tests/test_template.py     5분류 테스트 템플릿(정상·규칙·경계·�
 tests/test_guards.py       guards.py 규칙 테스트 21개(우회·과차단 방지·합계 보존·마스킹·타임아웃)
 tests/test_{next,decide,debug_dir,prompt,ui_check,flowmap}.py   키트 스크립트 자체 테스트(리허설 1 반영분)
 design-kit/                토큰·컴포넌트 CSS·스타일가이드·템플릿 4종(대시보드/콘솔/랜딩/모바일)·serve.py·ui_check.py·DESIGN.md
-docs/                      담당자 인터뷰 · 위임 프롬프트 · 프롬프트 예시(25) · 도식화 사용법 · flow.example.json · 서술형 대비 · 제출 체크리스트 · 심사자 시뮬레이션 · bash 치트시트
+docs/                      stakeholder_interview · delegation_prompts · prompt_examples(25) · diagram_guide · flow.example.json · written_answer_prep · submission_checklist · judge_simulation · bash_cheatsheet
 ```
 
 ## 시험장에서 (사전 체험 15분 또는 시작 직후, 5분 이내)
@@ -51,12 +51,12 @@ ls -a && codex                                                # /status /model �
 
 `git clone`이 막히면 **Plan C**: GitHub 웹에서 AGENTS.md → TASK.md → DECISIONS.md 순으로 복사·붙여넣기(이 3개면 절반). 나머지는 Codex에게 "AGENTS.md 3절 규칙대로 preflight.py를 만들어줘".
 
-첫 프롬프트(docs/위임_프롬프트.md 0번과 같은 문장):
+첫 프롬프트(docs/delegation_prompts.md 0번과 같은 문장):
 ```
 AGENTS.md를 읽고 이 세션의 규약으로 써. 코드는 아직 쓰지 마.
 TASK.md 머리에 `시작: HH:MM` 을 적고, 타이머 명령(python3 scripts/timer.py --start HH:MM --loop 300)을 첫 보고에 그대로 출력해.
 README와 파일 목록, 데이터 형식, 제출물 형식을 읽고 TASK.md의 한 문장·P0·1~5번을 채워 보여줘.
-업무 담당자에게 물어볼 질문 5~8개를 docs/담당자_인터뷰.md 순서로 만들어. 번호를 붙이고 한 번호에 한 주제, 질문마다 괄호로 왜 묻는지 한 줄. 끝에 사용 가능한 스킬 이름을 한 줄로 덧붙여.
+업무 담당자에게 물어볼 질문 5~8개를 docs/stakeholder_interview.md 순서로 만들어. 번호를 붙이고 한 번호에 한 주제, 질문마다 괄호로 왜 묻는지 한 줄. 끝에 사용 가능한 스킬 이름을 한 줄로 덧붙여.
 보고는 꼬리 3줄(지금 / 다음 추천 / 대기 중 할 일)로 끝내.
 ```
 

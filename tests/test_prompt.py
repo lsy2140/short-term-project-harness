@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""scripts/prompt.py · docs/프롬프트_예시.md 계약 테스트 (unittest, Python 3.9). 실행: python3 -m unittest tests.test_prompt -v
+"""scripts/prompt.py · docs/prompt_examples.md 계약 테스트 (unittest, Python 3.9). 실행: python3 -m unittest tests.test_prompt -v
 고정하는 것: 예시 수 25 · 구간별 개수 · 4요소(본문·막는 실수·출처·구간) · 번호/키워드 조회 · 없는 키워드 exit 1 · 파싱 형식."""
 import importlib.util
 import os
@@ -17,7 +17,7 @@ except Exception:  # noqa
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCRIPT = os.path.join(ROOT, 'scripts', 'prompt.py')
-DOC = os.path.join(ROOT, 'docs', '프롬프트_예시.md')
+DOC = os.path.join(ROOT, 'docs', 'prompt_examples.md')
 
 # 'prompt' 는 짧은 이름이라 설치 패키지와 겹칠 수 있어 파일 경로로 직접 읽는다.
 _spec = importlib.util.spec_from_file_location('kit_prompt', SCRIPT)

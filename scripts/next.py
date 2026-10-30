@@ -87,7 +87,7 @@ PHASE_TODO = {
                 '`decisions/pending.md` 미답 항목 0 확인(기본값 적용 표시)',
                 '`docs/flow.json`·flowmap 갱신'],
     '130–144': ['`python3 scripts/preflight.py --require <필수 파일>` FAIL 0',
-                '심사자 시뮬레이션 1회(docs/심사자_시뮬레이션.md, 별도 read-only 세션) → 미충족 보완',
+                '심사자 시뮬레이션 1회(docs/judge_simulation.md, 별도 read-only 세션) → 미충족 보완',
                 'PLAN.md 초안(1·2·4·5절 숫자 채우기)'],
     '144–165': [FINAL_FREEZE,
                 'HANDOFF.md 작성 · 템플릿 문구 제거 · `/review`',
@@ -97,7 +97,7 @@ PHASE_TODO = {
                 '필수 파일 저장 상태(저장됨) 마지막 확인'],
     '170': ['"제출하고 문제풀기" → 미리보기 → "제출물 확정하고 문제풀기"',
             'DECISIONS 5·7, TASK 8 다시 읽기',
-            '서술형 답변 3개 소리 내어 읽기(docs/서술형_대비.md)'],
+            '서술형 답변 3개 소리 내어 읽기(docs/written_answer_prep.md)'],
 }
 
 MILESTONES = [(110, '1차 동결'), (144, '동결'), (170, '제출')]
