@@ -15,7 +15,7 @@ description: 동결 구간(작업 종료 약 35분 전)에 제출 문서를 정�
 ## 현재 상태        ← 테스트 N개 PASS / preflight exit 0 / 출력 파일 경로
 ## 결정과 이유      ← DECISIONS.md 1~3 요약
 ## 한계와 다음 단계  ← 틀릴 수 있는 입력, 시간이 있었다면
-## 데모 순서(정상 1회 + 실패 1회)  ← 실제로 친 명령·입력·화면/파일에서 보이는 것 + `out/report.html`(flowmap 도식·숫자) 링크, `docs/diagrams/`(archify 구조도, 있으면) 링크
+## 데모 순서(정상 1회 + 실패 1회)  ← 실제로 친 명령·입력·화면/파일에서 보이는 것 + `out/report/index.html`(보고서 세션이 만든 단계 보고서) 링크, `docs/diagrams/`(archify 구조도, 있으면) 링크
 ## 실제 vs 목업   ← | 영역 | 상태(실제/목업/생략) | 교체 지점(파일:줄) |
 ```
 ## PLAN.md
@@ -29,5 +29,5 @@ description: 동결 구간(작업 종료 약 35분 전)에 제출 문서를 정�
 - README의 숫자(행 수·임계값·테스트 수)는 테스트가 읽는 값(tests/·코드 상수)과 같게 한다. 다르면 README가 틀린 것이다.
 - 문서 작성 전 `grep -rn "결정:" src tests` 결과를 DECISIONS.md 1절(설계 결정)과 TASK.md 2절(가정)로 옮긴다. 주석에만 있는 결정은 심사자가 보지 못한다.
 - 문서 작성 후 `python3 scripts/preflight.py --require README.md PLAN.md <출력 파일>`로 미완성 표시 스캔을 통과시킨다.
-- 동결 전 `python3 scripts/flowmap.py` 를 다시 돌려 `out/report.html` 의 숫자가 최종 실행 결과와 같게 한다(exit 0 확인). `docs/diagrams/` 가 있으면 최신인지 본다.
+- 동결 전 사람에게 "보고서 세션에서 `$stage-report all` 을 돌려 달라"고 요청하고, `out/report/index.html` 이 최신인지 확인한다(이 세션에서 flowmap 을 직접 돌리지 않는다). `docs/diagrams/` 가 있으면 최신인지 본다.
 - 마지막에 `python3 scripts/preflight.py` 를 다시 돌려 결과(테스트 수·exit)를 HANDOFF 1번 숫자 줄에 적는다.

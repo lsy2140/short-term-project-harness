@@ -326,6 +326,19 @@ $narrative-prep 지금 만든 것에 대해 심사자가 물을 만한 질문 6�
 - 막는 실수: AI 말투·일반론으로 답해 재질문을 부르거나, 모르는 것을 아는 척해 다음 질문에서 무너지는 것.
 - 출처: 참고A/docs/당일_대본.md:79-81 · 참고A/docs/POSTMORTEM_QA.md:22-28(세 가지 금지) · 키트/docs/written_answer_prep.md 두 번째 골격 · 제약의 대가 · 웹②(명확하고 직접적으로, 실패 조건을 적는다)
 
+## 26. 보고서 세션 — 끝난 단계 묶음의 검증 보고서
+- 구간: 보고서
+- 키워드: 보고서 세션, stage-report, 두 번째 터미널, 검증 html, 차트, 한눈에
+```
+$stage-report [1-3]
+out/debug/[01]_*~[03]_*/verify.json·green.txt·note.md, PLAN.md 4번, DECISIONS 1·4·6번을 읽고 코드는 grep -n "def "·sed -n 으로 구현 위치만 봐.
+docs/diagram_guide.md 3절 지침대로 out/report/stage_[01-03].json 을 쓰고 python3 scripts/flowmap.py 로 HTML 과 --index out/report 를 만들어.
+단계마다 역할 → 구현 위치(파일:줄·함수) → 방법 3~6줄 → 결과 숫자(출처) → 차트(사유별 hbar·전후 compare·분포 hist) → 입력→출력 샘플 2~3행 → 테스트 → 결정.
+summary 3줄은 결론 먼저. 근거 없는 숫자는 "근거 없음"·NOT_RUN. 코드·tests·docs 수정 금지, 테스트·서버 실행 금지. 5줄로 보고(경로·상태·숫자 3개·근거 없음·미리보기 명령).
+```
+- 막는 실수: 메인 세션에 보고서까지 시켜 다음 단계가 밀리는 것(리허설 2 실측), 보고서 세션이 코드를 고치거나 테스트를 돌려 메인과 충돌하는 것, 추정 숫자로 그린 차트.
+- 출처: 키트/AGENTS.md 4절 "보고서는 두 번째 세션이 만든다" · 키트/.agents/skills/stage-report/SKILL.md · 키트/docs/diagram_guide.md 0·3절 · 리허설 2 피드백(2026-10-30)
+
 ## 출처 목록
 | 표기 | 무엇 | 가져온 것 |
 |---|---|---|

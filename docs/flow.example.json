@@ -1,69 +1,242 @@
 {
-  "title": "센서 알람 일일 정리 — 데이터 흐름과 숫자",
+  "title": "센서 알람 일일 정리 — 단계별 구현·결과 보고",
   "as_of": "2026-10-27 KST (리허설 1 결과, 2026-10-29 집계)",
+  "summary": [
+    "입력 35,496행 중 5,184행을 사유 3종(점검 설비·결측·중복)으로 제외하고 30,312행을 정규화해 알람 17건(A 6·B 4·C 7)을 냈다. 합계 보존 확인.",
+    "숨은 규칙 11개가 모두 테스트로 고정됐고 발동 건수가 0인 규칙은 '폐기 설비 격리' 1개뿐이다(데이터에 폐기 로그 0행 — 엣지 입력으로 재확인).",
+    "남은 위험: 라인 B 의 naive 시각을 UTC 로 보는 가정(run.py:93)이 틀리면 B 라인 알람 4건의 시각이 9시간 어긋난다 — 담당자 확인 NOT_RUN."
+  ],
   "stages": [
     {
       "id": "clean",
       "name": "정제",
+      "status": "PASS",
+      "role": "상태표·결측·중복 기준으로 '세면 안 되는 행'을 사유와 함께 걸러낸다. 점수 계산 전에 빼는 hard constraint 단계.",
       "inputs": ["data/sensor_log.csv 35,496행", "data/equipment.csv 24대(운영 20·점검 3·폐기 1)"],
       "outputs": ["유효 측정 30,312행", "제외 사유별 건수 → out/audit.json excluded_counts"],
+      "implemented": [
+        {"file": "run.py", "lines": "120-140", "symbol": "filter_scope()", "what": "equipment.csv 상태가 '운영'이 아닌 설비의 행을 전부 제외하고 사유 maintenance/retired 로 집계"},
+        {"file": "daily.py", "lines": "83-116", "symbol": "dedupe_and_quality()", "what": "완전 중복 행을 1건으로, 빈 값·NA 를 missing_value 로 제외(첫 위반 사유 1개)"}
+      ],
+      "method": [
+        "equipment.csv 를 읽어 equipment_id → status 사전을 만든다",
+        "sensor_log 의 각 행을 순서대로 보며 status != 운영이면 제외 목록(사유 maintenance)에 넣는다",
+        "남은 행에서 (timestamp, equipment_id, sensor, value) 가 완전히 같은 행은 두 번째부터 duplicate 로 제외",
+        "value 가 ''·NA 이면 missing_value 로 제외하고 건수만 센다 (알람 판정에는 쓰지 않음)",
+        "입력 = 통과 + 제외 합을 assert 로 확인하고 audit.json 에 사유별 건수를 쓴다"
+      ],
       "rules": [
         {"name": "점검(PM) 설비는 상태표 기준으로 입력 전체에서 제외", "fired": 4642, "test": "tests.test_unit_and_scope.test_maintenance_is_excluded_with_reason"},
         {"name": "결측·비정상 값은 제외하고 첫 위반 사유 1개만 기록", "fired": 408, "test": "tests.test_daily_quality_intervals.test_missing_values_not_alarms"},
         {"name": "완전 중복 행은 한 번만 센다", "fired": 134, "test": "tests.test_daily_quality_intervals.test_duplicate_counted_once"},
         {"name": "폐기 설비 로그는 잠정 격리하고 fallback 으로 표시", "fired": 0, "test": "tests.test_unit_and_scope.test_retired_equipment_is_quarantined_as_assumption"}
       ],
+      "results": [
+        {"label": "통과", "value": 30312, "unit": "행", "note": "out/audit.json kept"},
+        {"label": "제외", "value": 5184, "unit": "행", "note": "사유 3종 합"},
+        {"label": "제외 설비", "value": 3, "unit": "대", "note": "EQ-A03·B05·C07(점검)"}
+      ],
+      "charts": [
+        {"type": "hbar", "title": "제외 사유별 행 수", "unit": "행", "note": "out/audit.json excluded_counts",
+         "data": [{"label": "점검 설비", "value": 4642}, {"label": "결측값", "value": 408}, {"label": "완전 중복", "value": 134}, {"label": "폐기 설비", "value": 0}], "highlight": ["폐기 설비"]}
+      ],
+      "samples": [
+        {"before": "EQ-A03,TEMP,2026-10-27 08:00,91.2 (status=점검)", "after": "제외 maintenance", "note": "알람 후보였던 값이지만 점검 중이라 빠짐"},
+        {"before": "EQ-A01,TEMP,2026-10-27 03:20,'' (빈 값)", "after": "제외 missing_value, 건수 +1", "note": "구간 연결 계산에서는 시각만 쓰고 값은 쓰지 않음"},
+        {"before": "같은 행 2개 (EQ-C02 FLOW 07:30 84.0)", "after": "1행만 유지", "note": "n_readings 가 부풀지 않음"}
+      ],
+      "tests": [
+        {"name": "tests.test_unit_and_scope.test_maintenance_is_excluded_with_reason", "status": "PASS", "evidence": "out/debug/01_첫완주/green.txt"},
+        {"name": "tests.test_daily_quality_intervals.test_missing_values_not_alarms", "status": "PASS", "evidence": "out/debug/02_정제/green.txt"},
+        {"name": "tests.test_daily_quality_intervals.test_duplicate_counted_once", "status": "PASS", "evidence": "out/debug/02_정제/green.txt"},
+        {"name": "tests.test_unit_and_scope.test_retired_equipment_is_quarantined_as_assumption", "status": "PASS", "evidence": "합성 입력(make_edge_cases)으로 발동 확인"}
+      ],
+      "evidence": "out/debug/02_정제/",
       "notes": "제외 순서: 설비 범위 → 중복 → 결측 (daily.py:83). 폐기 설비 EQ-C08 은 로그 0행이라 발동 0건 → 엣지 입력으로 재확인"
     },
     {
       "id": "normalize",
       "name": "정규화",
+      "status": "PASS",
+      "role": "로거마다 다른 시각 형식·시간대·압력 단위를 KST 시각과 Torr 로 통일해 같은 자로 비교할 수 있게 한다.",
       "inputs": ["유효 측정 30,312행", "data/thresholds.csv 4행"],
       "outputs": ["KST 시각·Torr 단위로 통일된 측정 30,312행"],
+      "implemented": [
+        {"file": "run.py", "lines": "67-98", "symbol": "normalize_timestamp()", "what": "Z·+0900·'/' 구분 형식을 파싱해 aware KST 로 통일, 라인 B naive 는 UTC 로 가정"},
+        {"file": "run.py", "lines": "103-112", "symbol": "normalize_unit()", "what": "라인 B PRESS 의 mTorr 를 ÷1000, Torr 명시 행은 유지"}
+      ],
+      "method": [
+        "라인 C 의 YYYY/MM/DD HH:MM 은 '-' 로 바꿔 ISO 로 맞춘다",
+        "끝이 Z 또는 ±HH:MM 이면 그 오프셋으로 파싱해 KST 로 변환한다(두 번 더하지 않음)",
+        "오프셋이 없는 naive 시각은 라인 B 만 UTC 로 보고 +9h, A·C 는 KST 로 둔다(가정, run.py:93)",
+        "unit 열이 mTorr 이면 value ÷ 1000 하고 unit 을 Torr 로 바꾼다"
+      ],
       "rules": [
         {"name": "라인 B 의 naive 시각은 UTC 로 보고 +9h, A·C 는 KST 로 간주", "fired": 20054, "test": "tests.test_timestamp_normalization.test_lines_a_c_assumed_kst"},
         {"name": "명시 오프셋(Z·+09:00)은 그대로 변환하고 두 번 더하지 않음", "fired": 10800, "test": "tests.test_timestamp_normalization.test_explicit_z_converts_once"},
         {"name": "라인 B PRESS 의 mTorr 는 ÷1000, Torr 명시 행은 유지", "fired": 2665, "test": "tests.test_unit_and_scope.test_line_b_pressure_unit_conversion"}
       ],
+      "results": [
+        {"label": "시각 변환", "value": 10800, "unit": "행", "note": "Z 표기(라인 B)"},
+        {"label": "단위 변환", "value": 2665, "unit": "행", "note": "mTorr → Torr"},
+        {"label": "형식 오류", "value": 0, "unit": "행", "note": "파싱 실패 0 → ValueError 없음"}
+      ],
+      "charts": [
+        {"type": "stacked", "title": "라인별 시각 형식 분포", "unit": "행", "note": "라인 B 만 Z 표기, C 는 '/' 구분",
+         "data": [{"label": "A", "parts": {"naive KST": 10112, "Z(UTC)": 0, "slash": 0}}, {"label": "B", "parts": {"naive KST": 0, "Z(UTC)": 10800, "slash": 0}}, {"label": "C", "parts": {"naive KST": 0, "Z(UTC)": 0, "slash": 9400}}]}
+      ],
+      "samples": [
+        {"before": "2026-10-26T17:00:00Z (라인 B)", "after": "2026-10-27 02:00 KST", "note": "UTC → +9h"},
+        {"before": "1500.0,mTorr (라인 B PRESS)", "after": "1.5,Torr", "note": "upper 2.0 Torr 와 같은 자로 비교"},
+        {"before": "2026/10/27 05:20 (라인 C)", "after": "2026-10-27 05:20 KST", "note": "구분자만 통일"}
+      ],
+      "tests": [
+        {"name": "tests.test_timestamp_normalization.test_explicit_z_converts_once", "status": "PASS", "evidence": "out/debug/03_정규화/green.txt"},
+        {"name": "tests.test_unit_and_scope.test_line_b_pressure_unit_conversion", "status": "PASS", "evidence": "out/debug/03_정규화/green.txt"}
+      ],
+      "evidence": "out/debug/03_정규화/",
       "notes": "시각 사유 건수(20,054 + 10,800 = 30,854)는 중복·결측 제외 전 기준. 단위 사유 합은 2,665 + 27,647 = 30,312"
     },
     {
       "id": "merge",
       "name": "묶기",
+      "status": "PASS",
+      "role": "같은 설비·센서의 연속 초과를 담당자 규칙(10분 이내 = 같은 알람)대로 한 구간으로 합친다. 상태 루프로 구현.",
       "inputs": ["정규화 측정 30,312행"],
       "outputs": ["알람 구간 19개(전 기간)", "알람 측정 66행"],
+      "implemented": [
+        {"file": "daily.py", "lines": "116-160", "symbol": "build_intervals()", "what": "설비·센서별로 시각순 정렬 후 초과 측정을 10분 이내 간격이면 같은 구간으로, 정상값이 끼면 분리"}
+      ],
+      "method": [
+        "(equipment_id, sensor) 로 그룹을 만들고 각 그룹을 시각 오름차순 정렬한다",
+        "초과(값 >= upper 또는 값 <= lower)인 측정을 만나면 구간을 연다",
+        "다음 초과가 직전 초과로부터 10분 이내(<=)면 같은 구간에 넣고, 정상값을 만나면 구간을 닫는다",
+        "결측 행은 횟수에서 빼되 시각 간격 계산에는 영향을 주지 않는다(EQ-A01 03:20)",
+        "구간마다 peak(최대 이탈), threshold, n_readings 를 기록한다"
+      ],
       "rules": [
         {"name": "임계값 초과 측정이 10분 이내에 다시 초과하면 한 구간으로 묶음", "fired": 47, "test": "tests.test_daily_quality_intervals.test_chained_exceedances"},
         {"name": "정확히 10분 간격도 같은 구간", "fired": 1, "test": "tests.test_daily_quality_intervals.test_gap_exactly_ten_minutes"},
         {"name": "정상값이 끼면 구간을 분리", "fired": 19, "test": "tests.test_daily_quality_intervals.test_normal_reading_splits"},
         {"name": "구간 안 결측은 측정 횟수에서 빼되 연결은 유지", "fired": 1, "test": "tests.test_daily_quality_intervals.test_missing_inside_interval_is_not_counted_as_reading"}
       ],
+      "results": [
+        {"label": "구간", "value": 19, "unit": "개", "note": "전 기간"},
+        {"label": "알람 측정", "value": 66, "unit": "행", "note": "구간에 든 초과 측정"},
+        {"label": "안 묶었다면", "value": 59, "unit": "건", "note": "대상일 기준 초과 측정 수"}
+      ],
+      "charts": [
+        {"type": "compare", "title": "묶기 규칙 적용 전·후 (대상일)", "unit": "건", "names": ["규칙 끔", "규칙 켬"], "note": "SCORING 변형 계산과 일치",
+         "data": [{"label": "안 묶음", "before": 59, "after": 17}, {"label": "10분 '<'", "before": 18, "after": 17}, {"label": "15분 묶음", "before": 16, "after": 17}]}
+      ],
+      "samples": [
+        {"before": "EQ-A01 TEMP 03:10,03:15,(결측 03:20),03:25,03:30,03:35 모두 초과", "after": "1구간 03:10~03:35, n=5", "note": "결측이 끼어도 10분 이내라 연결"},
+        {"before": "EQ-C01 TEMP 05:00,05:05 초과 → 05:20,05:25 초과", "after": "2구간 (간격 15분)", "note": "10분 초과면 분리"},
+        {"before": "EQ-A06 VIB 11:05~12:00 초과 12개, 12:20~12:35 4개", "after": "2구간 (20분 갭)", "note": ""}
+      ],
+      "tests": [
+        {"name": "tests.test_daily_quality_intervals.test_chained_exceedances", "status": "PASS", "evidence": "out/debug/04_묶기/green.txt"},
+        {"name": "tests.test_daily_quality_intervals.test_gap_exactly_ten_minutes", "status": "PASS", "evidence": "out/debug/04_묶기/green.txt"},
+        {"name": "tests.test_daily_quality_intervals.test_normal_reading_splits", "status": "PASS", "evidence": "out/debug/04_묶기/green.txt"}
+      ],
+      "evidence": "out/debug/04_묶기/",
       "notes": "임계값과 같은 값은 초과로 본다(test_equal_limit_and_empty_input). 방향이 바뀌면 대표값과 해당 임계값을 함께 고른다"
     },
     {
       "id": "select",
       "name": "정렬",
+      "status": "PASS",
+      "role": "전 기간 구간 중 대상일(10/27 KST)에 시작한 것만 남기고, 심한 정도 내림차순으로 줄 세운다(soft ranking).",
       "inputs": ["알람 구간 19개"],
       "outputs": ["대상일 알람 17건(A 6·B 4·C 7)"],
+      "implemented": [
+        {"file": "daily.py", "lines": "148-160", "symbol": "select_day()", "what": "구간 시작 시각의 KST 날짜가 대상일인 것만 선택"},
+        {"file": "daily.py", "lines": "26-40", "symbol": "severity()", "what": "최대 이탈률 = (값−상한)/상한 또는 (하한−값)/하한, 동률은 시각·설비·센서 순"}
+      ],
+      "method": [
+        "구간 시작 시각(KST)의 날짜가 2026-10-27 인 구간만 남긴다(종료가 다음 날이어도 포함)",
+        "구간의 최대 이탈률을 severity 로 계산한다",
+        "severity 내림차순, 동률은 start_time·equipment_id·sensor 오름차순으로 정렬한다"
+      ],
       "rules": [
         {"name": "대상일(10/27 KST)에 시작한 구간만, 전날 시작은 제외", "fired": 1, "test": "tests.test_daily_quality_intervals.test_previous_day_start_is_excluded"},
         {"name": "자정을 넘겨 끝나는 구간은 포함", "fired": 1, "test": "tests.test_daily_quality_intervals.test_cross_midnight_by_start"},
         {"name": "다음 날 시작 구간은 제외", "fired": 1, "test": "tests.test_daily_quality_intervals.test_target_day_start_boundaries"},
         {"name": "심한 정도 = 최대 이탈률, 동률은 시각·설비·센서 순", "fired": 17, "test": "tests.test_final_scoring_policy.test_max_is_final_and_supplementary_scores_do_not_override_ranking"}
       ],
+      "results": [
+        {"label": "알람", "value": 17, "unit": "건", "note": "19 − 전날 1 − 다음 날 1"},
+        {"label": "최대 severity", "value": 0.4, "unit": "", "note": "EQ-C02 FLOW 07:30 (84 vs 60)"}
+      ],
+      "charts": [
+        {"type": "bar", "title": "라인별 알람 건수", "unit": "건", "note": "out/report.md 라인별 건수",
+         "data": [{"label": "A", "value": 6}, {"label": "B", "value": 4}, {"label": "C", "value": 7}]},
+        {"type": "hist", "title": "severity 분포 (구간 0.1)", "unit": "건", "note": "out/alarms.csv severity 열",
+         "data": [{"label": "0.0~0.1", "value": 4}, {"label": "0.1~0.2", "value": 5}, {"label": "0.2~0.3", "value": 7}, {"label": "0.3~0.4", "value": 0}, {"label": "0.4~0.5", "value": 1}]},
+        {"type": "line", "title": "시간대별 알람 시작 건수", "xlabel": "시(KST)", "note": "대상일 17건의 start_time 시각 분포",
+         "series": [{"name": "알람 시작", "points": [
+           {"x": "0", "y": 0}, {"x": "1", "y": 0}, {"x": "2", "y": 1}, {"x": "3", "y": 1}, {"x": "4", "y": 0}, {"x": "5", "y": 2}, {"x": "6", "y": 0}, {"x": "7", "y": 1},
+           {"x": "8", "y": 0}, {"x": "9", "y": 1}, {"x": "10", "y": 0}, {"x": "11", "y": 1}, {"x": "12", "y": 2}, {"x": "13", "y": 1}, {"x": "14", "y": 1}, {"x": "15", "y": 1},
+           {"x": "16", "y": 1}, {"x": "17", "y": 0}, {"x": "18", "y": 1}, {"x": "19", "y": 1}, {"x": "20", "y": 0}, {"x": "21", "y": 1}, {"x": "22", "y": 0}, {"x": "23", "y": 1}]}]}
+      ],
+      "samples": [
+        {"before": "EQ-B01 TEMP 10/26 23:50 시작 구간", "after": "제외 (전날 시작)", "note": ""},
+        {"before": "EQ-C04 TEMP 10/27 23:50~10/28 00:05", "after": "포함, end_time 00:05", "note": "시작 시각 기준"},
+        {"before": "EQ-B07 10/28 01:30 시작", "after": "제외 (다음 날)", "note": "UTC 로 잘못 읽으면 10/27 16:30 으로 오포함"}
+      ],
+      "tests": [
+        {"name": "tests.test_daily_quality_intervals.test_cross_midnight_by_start", "status": "PASS", "evidence": "out/debug/05_정렬/green.txt"},
+        {"name": "tests.test_final_scoring_policy.test_max_is_final_and_supplementary_scores_do_not_override_ranking", "status": "PASS", "evidence": "out/debug/05_정렬/green.txt"}
+      ],
+      "evidence": "out/debug/05_정렬/",
       "notes": "19 − 1(전날 시작) − 1(다음 날 시작) = 17"
     },
     {
       "id": "output",
       "name": "출력",
+      "status": "HUMAN_CHECK",
+      "role": "README 가 정한 파일명·9열·정렬·인코딩 그대로 쓰고, 담당자용 report.md 와 집계 근거 audit.json 을 함께 낸다.",
       "inputs": ["알람 17건"],
       "outputs": ["out/alarms.csv 17행·9열", "out/report.md (건수·주요 알람·제외·품질)", "out/audit.json"],
+      "implemented": [
+        {"file": "run.py", "lines": "200-240", "symbol": "write_outputs()", "what": "열 화이트리스트 9개 순서로 CSV, report.md 의 라인별 건수·상위 5·제외 설비·품질 표"}
+      ],
+      "method": [
+        "OUTPUT_COLUMNS 상수 순서로만 열을 쓴다(내부 열은 out/debug 로)",
+        "숫자는 소수 6자리 반올림, 시각은 YYYY-MM-DD HH:MM, UTF-8·LF",
+        "report.md 는 audit.json 의 숫자만 인용한다(암산 금지)"
+      ],
       "rules": [
         {"name": "열 이름·순서는 README MUST 5 의 9개로 고정(화이트리스트)", "fired": 17, "test": "tests.test_first_pass.test_alarm_output_schema"},
         {"name": "같은 입력이면 같은 출력(소수 6자리 반올림, 정렬 고정)", "fired": 17, "test": "tests.test_independent_contract.test_independent_checker_accepts_clean_outputs"}
       ],
+      "results": [
+        {"label": "alarms.csv", "value": 17, "unit": "행", "note": "9열"},
+        {"label": "report.md 표", "value": 4, "unit": "개", "note": "라인별·상위5·제외·품질"}
+      ],
+      "samples": [
+        {"before": "구간 EQ-C02 FLOW 07:30 peak 84.0 thr 60", "after": "EQ-C02,C,FLOW,2026-10-27 07:30,2026-10-27 07:30,84.0,60.0,0.4,1", "note": "첫 행(severity 최대)"}
+      ],
+      "tests": [
+        {"name": "tests.test_first_pass.test_alarm_output_schema", "status": "PASS", "evidence": "out/debug/06_출력/green.txt"},
+        {"name": "report.md 를 담당자 눈으로 읽기", "status": "HUMAN_CHECK", "evidence": "사람이 out/report.md 를 열어 확인"}
+      ],
+      "evidence": "out/debug/06_출력/",
       "notes": "시각은 YYYY-MM-DD HH:MM, UTF-8"
     }
+  ],
+  "charts": [
+    {"type": "matrix", "title": "단계 × 검증 방법", "corner": "단계", "cols": ["unittest", "check_contract", "발동 건수 확인", "사람 확인"],
+     "note": "셀 색: 초록 PASS · 노랑 HUMAN_CHECK · 회색 NOT_RUN · 빨강 FAIL",
+     "rows": [
+       {"label": "정제", "cells": [{"value": "PASS", "status": "PASS"}, {"value": "PASS", "status": "PASS"}, {"value": "3/4 (폐기 0건)", "status": "HUMAN_CHECK"}, {"value": "—", "status": "NOT_RUN"}]},
+       {"label": "정규화", "cells": [{"value": "PASS", "status": "PASS"}, {"value": "PASS", "status": "PASS"}, {"value": "3/3", "status": "PASS"}, {"value": "—", "status": "NOT_RUN"}]},
+       {"label": "묶기", "cells": [{"value": "PASS", "status": "PASS"}, {"value": "PASS", "status": "PASS"}, {"value": "4/4", "status": "PASS"}, {"value": "—", "status": "NOT_RUN"}]},
+       {"label": "정렬", "cells": [{"value": "PASS", "status": "PASS"}, {"value": "PASS", "status": "PASS"}, {"value": "4/4", "status": "PASS"}, {"value": "—", "status": "NOT_RUN"}]},
+       {"label": "출력", "cells": [{"value": "PASS", "status": "PASS"}, {"value": "PASS", "status": "PASS"}, {"value": "2/2", "status": "PASS"}, {"value": "report.md", "status": "HUMAN_CHECK"}]}
+     ]},
+    {"type": "compare", "title": "숨은 규칙 적용 전·후 알람 건수", "unit": "건", "names": ["규칙 끔", "규칙 켬"], "note": "SCORING.md 변형 계산(규칙 하나를 뺀 결과)",
+     "data": [{"label": "점검 제외", "before": 19, "after": 17}, {"label": "경계값 포함", "before": 14, "after": 17}, {"label": "10분 묶기", "before": 59, "after": 17}, {"label": "B 시각 +9h", "before": 17, "after": 17}]}
   ],
   "conservation": {
     "input": 35496,
@@ -75,12 +248,12 @@
     }
   },
   "decisions": [
-    {"where": "daily.py:26", "what": "최대 이탈률을 심한 정도의 최종 기준으로 (평균·중앙값은 보조) / 사용자 결정 / 평균으로 순위 변경"},
-    {"where": "run.py:93", "what": "naive 시각은 B 가 UTC, A·C 가 KST 라는 잠정 가정 / 담당자 미확정 / 전부 KST 로 간주"},
-    {"where": "run.py:111", "what": "행에 Torr 가 명시되면 값 유지, mTorr 만 ÷1000 / B 압력에 Torr 27행 혼재 / B 전체 강제 나눗셈"},
-    {"where": "run.py:131", "what": "상태표의 점검 설비는 입력 전체에서 제외 / 담당자 지시 / PM 메모로 시간 경계 추정"},
-    {"where": "run.py:134", "what": "폐기 설비 로그는 잠정 격리하고 fallback 표시 / 정책 미확정 / 일반 알람에 포함"},
-    {"where": "run.py:214", "what": "심함·시각 동률은 설비·센서 순으로 정렬 / 결정적 출력 / 입력 순서 의존"}
+    {"stage": "select", "where": "daily.py:26", "what": "최대 이탈률을 심한 정도의 최종 기준으로 (평균·중앙값은 보조) / 사용자 결정 / 평균으로 순위 변경"},
+    {"stage": "normalize", "where": "run.py:93", "what": "naive 시각은 B 가 UTC, A·C 가 KST 라는 잠정 가정 / 담당자 미확정 / 전부 KST 로 간주"},
+    {"stage": "normalize", "where": "run.py:111", "what": "행에 Torr 가 명시되면 값 유지, mTorr 만 ÷1000 / B 압력에 Torr 27행 혼재 / B 전체 강제 나눗셈"},
+    {"stage": "clean", "where": "run.py:131", "what": "상태표의 점검 설비는 입력 전체에서 제외 / 담당자 지시 / PM 메모로 시간 경계 추정"},
+    {"stage": "clean", "where": "run.py:134", "what": "폐기 설비 로그는 잠정 격리하고 fallback 표시 / 정책 미확정 / 일반 알람에 포함"},
+    {"stage": "select", "where": "run.py:214", "what": "심함·시각 동률은 설비·센서 순으로 정렬 / 결정적 출력 / 입력 순서 의존"}
   ],
   "verification": [
     {"name": "unittest 전체", "status": "PASS", "evidence": "107 run / 0 fail (out/debug/09_동결/green.txt)"},

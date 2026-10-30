@@ -79,3 +79,16 @@ $narrative-prep 지금 만든 것에 대해 심사자가 물을 만한 질문 6�
 
 ## 9. 심사자 시뮬레이션 (130분·165분, 별도 read-only 세션)
 `$probe-judge` 또는 docs/judge_simulation.md의 프롬프트.
+
+## 9. 보고서 세션 (두 번째 터미널, 같은 과제 폴더에서 `codex`)
+메인 세션이 4~6단계를 하는 동안 끝난 1~3단계의 검증 보고서를 만든다. 쓰는 곳은 `out/report/` 뿐이다.
+```
+$stage-report 1-3
+out/debug/01_*~03_*/verify.json·green.txt·note.md, PLAN.md 4번, DECISIONS 1·4·6번을 읽고, 코드는 grep -n "def "·sed -n 으로 구현 위치만 봐.
+docs/diagram_guide.md 3절 지침대로 out/report/stage_01-03.json 을 쓰고 python3 scripts/flowmap.py 로 stage_01-03.html 과 --index out/report 를 만들어.
+단계마다 역할 → 구현 위치(파일:줄·함수) → 방법 3~6줄 → 결과 숫자(출처) → 차트(사유별 hbar·전후 compare·분포 hist 중 맞는 것) → 입력→출력 샘플 2~3행 → 테스트 → 결정.
+summary 3줄은 결론 먼저(무엇이 됐나 / 숫자가 맞나 / 남은 위험). 근거 없는 숫자는 쓰지 말고 "근거 없음"·NOT_RUN 으로.
+코드·tests·docs·TASK/PLAN/DECISIONS 는 수정하지 말고, 테스트·서버도 실행하지 마. 끝나면 파일 경로·단계 상태·핵심 숫자 3개·근거 없음 목록·미리보기 명령(내가 실행)으로 5줄 보고.
+```
+전체 보고서(1차·최종 동결): `$stage-report all` → `out/report/stage_all.html`. 보고서를 보고 틀린 것은 **메인 세션**에 `요구사항 갱신:` 또는 `$debug-loop` 로 넘긴다.
+

@@ -80,8 +80,8 @@ class TestExampleReport(unittest.TestCase):
         """가로·세로 SVG 두 벌이라 단계 상자는 2 × 단계 수. 둘 다 role=img + aria-label."""
         n = len(self.spec['stages'])
         self.assertIn('<svg', self.html)
-        self.assertEqual(self.html.count('class="stage"'), 2 * n)
-        self.assertEqual(self.html.count('role="img"'), 3)  # 가로 svg + 세로 svg + 합계 띠
+        self.assertEqual(self.html.count('<g class="stage">'), 2 * n)
+        self.assertGreaterEqual(self.html.count('role="img"'), 3)  # 가로 svg + 세로 svg + 합계 띠 (+ 차트)
         for st in self.spec['stages']:
             self.assertIn(st['name'], self.html)
 
@@ -92,7 +92,7 @@ class TestExampleReport(unittest.TestCase):
         self.assertNotIn('합계 불일치', self.html)
 
     def test_sections_and_badges(self):
-        for h2 in ('파이프라인', '합계 보존', '규칙 발동', '결정', '검증', '링크'):
+        for h2 in ('단계 한눈에', '파이프라인', '합계 보존', '전체 차트', '단계별 상세', '규칙 발동', '결정', '검증', '링크'):
             self.assertIn('<h2>%s</h2>' % h2, self.html)
         self.assertIn('badge ok">PASS', self.html)
         self.assertIn('badge warn">HUMAN_CHECK', self.html)
@@ -239,6 +239,120 @@ class TestUiCheck(unittest.TestCase):
             self.assertEqual(gen.returncode, 0, gen.stderr)
             proc = run([out, '--tokens', TOKENS, '--no-tree'], script=UI_CHECK)
         self.assertEqual(proc.returncode, 0, proc.stdout)
+        m = re.search(r'RESULT: (\d+) PASS / (\d+) WARN / (\d+) FAIL', proc.stdout)
+        self.assertIsNotNone(m, proc.stdout)
+        self.assertEqual(m.group(3), '0', proc.stdout)
+
+
+# ---------------------------------------------------------------- v2: 차트·단계 상세·--stages·--index
+class TestV2Report(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.spec = load_example()
+        cls.html, _ = flowmap.build_html(cls.spec, os.path.join(cls.tmp.name, 'r.html'), spec_label='x')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def _n_charts(self, spec):
+        return len(spec.get('charts') or []) + sum(len(st.get('charts') or []) for st in spec['stages'])
+
+    def test_every_chart_in_spec_is_rendered_with_data_table(self):
+        n = self._n_charts(self.spec)
+        self.assertGreaterEqual(n, 7)
+        self.assertEqual(self.html.count('<figure class="chart">'), n)
+        n_matrix = sum(1 for c in (self.spec.get('charts') or []) if c['type'] == 'matrix')
+        self.assertEqual(self.html.count('<details>'), n - n_matrix)   # matrix 는 표 자체라 details 없음
+        for t in ('bar', 'hbar', 'compare', 'stacked', 'line', 'hist', 'matrix'):
+            self.assertTrue(any(c['type'] == t for c in (self.spec.get('charts') or []) + [c for st in self.spec['stages'] for c in st.get('charts') or []]), t)
+
+    def test_chart_values_are_labelled(self):
+        self.assertIn('class="val"', self.html)
+        self.assertIn('>4,642<', self.html)      # hbar 값 라벨
+        self.assertIn('>59<', self.html)         # compare 전 값
+        self.assertIn('cell-ok', self.html)      # matrix 상태 셀
+
+    def test_stage_strip_and_detail_sections(self):
+        n = len(self.spec['stages'])
+        self.assertEqual(self.html.count('class="scard '), n)
+        self.assertEqual(self.html.count('<article class="stage"'), n)
+        for h4 in ('입력 → 출력', '구현 위치', '방법 (순서대로)', '결과 숫자', '입력 → 출력 샘플', '테스트', '이 단계의 결정'):
+            self.assertIn('<h4>%s' % h4, self.html, h4)
+        self.assertIn('run.py:120-140', self.html)
+        self.assertIn('filter_scope()', self.html)
+        self.assertIn('<ol class="method">', self.html)
+        self.assertEqual(self.html.count('<ol class="method">'), n)
+
+    def test_summary_first_and_status_from_tests(self):
+        self.assertIn('<div class="card summary"><ol>', self.html)
+        self.assertLess(self.html.index('card summary'), self.html.index('class="kpi"'))
+        self.assertEqual(flowmap.stage_status({'tests': [{'status': 'PASS'}, {'status': 'FAIL'}]}), 'FAIL')
+        self.assertEqual(flowmap.stage_status({'tests': [{'status': 'PASS'}]}), 'PASS')
+        self.assertEqual(flowmap.stage_status({'tests': [{'status': 'PASS'}, {'status': 'HUMAN_CHECK'}]}), 'HUMAN_CHECK')
+        self.assertEqual(flowmap.stage_status({}), 'NOT_RUN')
+        self.assertEqual(flowmap.stage_status({'status': 'PASS', 'tests': [{'status': 'FAIL'}]}), 'PASS')  # 명시가 우선
+
+    def test_stages_filter_keeps_order_and_scopes_decisions(self):
+        sub = flowmap.filter_spec(self.spec, '1-3')
+        self.assertEqual([st['id'] for st in sub['stages']], ['clean', 'normalize', 'merge'])
+        self.assertEqual(sub['stage_range'], '1-3')
+        self.assertTrue(all(d['stage'] in ('clean', 'normalize', 'merge') for d in sub['decisions']))
+        self.assertIs(flowmap.filter_spec(self.spec, 'all'), self.spec)
+        self.assertEqual(flowmap.parse_range('1,3', 5), [0, 2])
+        self.assertEqual(flowmap.parse_range('2', 5), [1])
+        with self.assertRaises(ValueError):
+            flowmap.parse_range('9', 5)
+        with self.assertRaises(ValueError):
+            flowmap.parse_range('3-1', 5)
+        text, _ = flowmap.build_html(sub, os.path.join(self.tmp.name, 's.html'), spec_label='x')
+        self.assertIn('(1-3단계)', text)
+        self.assertEqual(text.count('<article class="stage"'), 3)
+
+    def test_cli_stages_and_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out1 = os.path.join(tmp, 'stage_01-03.html')
+            p1 = run(['--spec', EXAMPLE, '--stages', '1-3', '--out', out1])
+            self.assertEqual(p1.returncode, 0, p1.stderr)
+            self.assertIn('단계 3', p1.stdout)
+            bad = run(['--spec', EXAMPLE, '--stages', '9', '--out', os.path.join(tmp, 'x.html')])
+            self.assertEqual(bad.returncode, 2)
+            self.assertIn('범위 밖', bad.stderr)
+            # index: 같은 이름의 json+html 짝만 집계
+            sub = flowmap.filter_spec(self.spec, '1-3')
+            write_spec(tmp, sub, 'stage_01-03.json')
+            write_spec(tmp, self.spec, 'orphan.json')   # html 짝 없음 → 제외
+            idx = run(['--index', tmp])
+            self.assertEqual(idx.returncode, 0, idx.stderr)
+            self.assertIn('보고서 1개', idx.stdout)
+            with open(os.path.join(tmp, 'index.html'), 'r', encoding='utf-8') as fh:
+                text = fh.read()
+            self.assertIn('stage_01-03.html', text)
+            self.assertNotIn('orphan', text)
+            self.assertEqual(len(H1_RE.findall(text)), 1)
+
+    def test_chart_labels_are_escaped_and_validation_catches_bad_chart(self):
+        spec = load_example()
+        spec['stages'][0]['charts'][0]['data'][0]['label'] = '<b>점검</b>'
+        spec['stages'][0]['implemented'][0]['what'] = '<script>x</script>'
+        text, _ = flowmap.build_html(spec, os.path.join(self.tmp.name, 'e.html'), spec_label='x')
+        self.assertNotIn('<b>점검</b>', text)
+        self.assertNotIn('<script>', text)
+        spec['charts'].append({'type': 'pie', 'title': 'x', 'data': [{'label': 'a', 'value': 1}]})
+        spec['stages'][1]['charts'] = [{'type': 'compare', 'title': 'y', 'data': [{'label': 'a', 'before': 1}]}]
+        errs = '\n'.join(flowmap.validate(spec))
+        self.assertIn('charts[2].type', errs)
+        self.assertIn('stages[1].charts[0].data[0].before/after', errs)
+
+    def test_stage_subset_passes_ui_check(self):
+        if not os.path.exists(UI_CHECK):
+            self.skipTest('design-kit/ui_check.py 없음')
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, 'stage_01-03.html')
+            gen = run(['--spec', EXAMPLE, '--stages', '1-3', '--out', out])
+            self.assertEqual(gen.returncode, 0, gen.stderr)
+            proc = run([out, '--tokens', TOKENS, '--no-tree'], script=UI_CHECK)
         m = re.search(r'RESULT: (\d+) PASS / (\d+) WARN / (\d+) FAIL', proc.stdout)
         self.assertIsNotNone(m, proc.stdout)
         self.assertEqual(m.group(3), '0', proc.stdout)

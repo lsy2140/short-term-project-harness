@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """scripts/prompt.py · docs/prompt_examples.md 계약 테스트 (unittest, Python 3.9). 실행: python3 -m unittest tests.test_prompt -v
-고정하는 것: 예시 수 25 · 구간별 개수 · 4요소(본문·막는 실수·출처·구간) · 번호/키워드 조회 · 없는 키워드 exit 1 · 파싱 형식."""
+고정하는 것: 예시 수 26 · 구간별 개수 · 4요소(본문·막는 실수·출처·구간) · 번호/키워드 조회 · 없는 키워드 exit 1 · 파싱 형식."""
 import importlib.util
 import os
 import subprocess
@@ -24,9 +24,9 @@ _spec = importlib.util.spec_from_file_location('kit_prompt', SCRIPT)
 prompt_cli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(prompt_cli)
 
-# 개선계획 6절: 킥오프 3 · 인터뷰 4 · 첫 완주 3 · 규칙 구현 5 · 캐내기 2 · 디버그 2 · 문서 3 · 심사자 1 · 서술형 2 = 25
+# 개선계획 6절: 킥오프 3 · 인터뷰 4 · 첫 완주 3 · 규칙 구현 5 · 캐내기 2 · 디버그 2 · 문서 3 · 심사자 1 · 서술형 2 = 25 + 보고서 1(10/30) = 26
 EXPECTED_SECTIONS = [('킥오프', 3), ('인터뷰', 4), ('첫 완주', 3), ('규칙 구현', 5), ('캐내기', 2),
-                     ('디버그', 2), ('문서', 3), ('심사자', 1), ('서술형', 2)]
+                     ('디버그', 2), ('문서', 3), ('심사자', 1), ('서술형', 2), ('보고서', 1)]
 UNIQUE_KEYWORD = '트레이스백'   # 18번에만 있는 키워드
 UNIQUE_KEYWORD_NUM = 18
 AMBIGUOUS_KEYWORD = '인터뷰'    # 구간 이름이라 4개가 걸린다
@@ -49,11 +49,11 @@ class TestDocContract(unittest.TestCase):
         cls.text = cls.raw.decode('utf-8')
         cls.examples = prompt_cli.parse_examples(cls.text)
 
-    def test_example_count_is_25(self):
-        self.assertEqual(len(self.examples), 25)
+    def test_example_count_is_26(self):
+        self.assertEqual(len(self.examples), 26)
 
-    def test_numbers_are_1_to_25_in_order(self):
-        self.assertEqual([e['num'] for e in self.examples], list(range(1, 26)))
+    def test_numbers_are_1_to_26_in_order(self):
+        self.assertEqual([e['num'] for e in self.examples], list(range(1, 27)))
 
     def test_every_example_has_body_mistake_source_section(self):
         for e in self.examples:

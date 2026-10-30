@@ -10,8 +10,8 @@ Working rules, templates, skills, and verification scripts for short, time-boxed
 | `TASK.md` `PLAN.md` `DECISIONS.md` `HANDOFF.md` | Task contract, plan, decision log, and handoff templates |
 | `RUN.md` | Time-boxed run sheet and checklists |
 | `decisions/` | Pending decisions and answers |
-| `.agents/skills/` | Codex skills (14) |
-| `scripts/` | Preflight, contract check, next-step hints, decision form, flow report, and helpers |
+| `.agents/skills/` | Codex skills (15) |
+| `scripts/` | Preflight, contract check, next-step hints, decision form, stage reports (flowmap), and helpers |
 | `design-kit/` | CSS tokens, components, page templates, and a UI checker |
 | `docs/` | Prompt examples and guides |
 | `tests/` | Test template and tests for the scripts |
@@ -26,6 +26,8 @@ cp -r .agents scripts tests docs design-kit decisions /path/to/project/
 ```
 
 Then start `codex` in the project folder. Delete skills you do not need to save tokens. The `archify` skill requires Node.js 18+.
+
+For stage reports, open a second `codex` session in the same folder and run `$stage-report 1-3`; it writes only to `out/report/`.
 
 ```bash
 python3 scripts/recon.py        # check the environment

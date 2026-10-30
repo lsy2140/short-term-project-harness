@@ -17,7 +17,7 @@ description: 구현·수정 작업을 마무리하거나 "완료", "됐어?", "�
 |---|---|---|---|---|
 | 결정 주석 목록 | | `grep -rn "결정:" src tests`(폴더명은 과제에 맞게) | 건수·누락 지점 | DECISIONS.md 1절과 대조 |
 
-   도식화(**필수**): `docs/flow.json`(단계·입출력·규칙·발동 건수·결정 위치·검증 결과)을 이 표의 숫자로 갱신하고 `python3 scripts/flowmap.py` → `out/report.html` 을 미리보기로 본다(합계 불일치면 exit 1 — 숫자를 audit 과 맞춘다). Node ≥18 이 있으면 `$archify` 로 `docs/diagrams/` 구조도를 갱신한다(선택, 1장당 1~2턴). 사용법: `docs/diagram_guide.md`.
+   단계 기록(**필수**): 이 단계의 `out/debug/NN_단계명/verify.json` 에 위 표의 숫자를 적는다 — `stage`·`what`·`status`·`files`(파일:줄 함수)·`method`·`counts`·`before_after`·`samples`·`tests`·`notes`(AGENTS 4절, 예 `docs/diagram_guide.md` 1절). 보고서 HTML 은 만들지 않는다(두 번째 세션의 `$stage-report` 가 이 파일로 만든다). Node ≥18 이 있으면 `$archify` 로 `docs/diagrams/` 구조도를 갱신할 수 있다(선택).
 
 5. FAIL/NOT_RUN이 있으면 다음 행동 1개를 제안한다. HUMAN_CHECK(UI·판단)는 사람이 확인할 항목을 적는다.
 6. 통과했으면 이 단계의 디버그 폴더(`scripts/debug_dir.py NN_단계명`)에 green.txt·verify.json 을 남기고 DECISIONS.md 4·6번에 한 줄 적는다.
