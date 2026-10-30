@@ -3,12 +3,14 @@
 실행: python3 -m unittest -v
 원칙: 완료 조건 1개 = 테스트 1개 / 이름은 업무 규칙을 문장으로 / 실패 경로가 정상 경로보다 많게 / 새 규칙은 먼저 FAIL을 본다.
 5분류: 정상 경로 · 업무 규칙("이건 나오면 안 돼") · 경계값 · 실패 경로(명시적 거부) · 계약(결정성·입력 불변·직렬화) · 보안·문서 계약
-과제를 받으면 ENTRY를 실제 진입 함수로 바꾸고, 예시 테스트를 지우며 규칙 테스트를 채운다.
+과제를 받으면 ENTRY를 실제 진입 함수로 바꾸고, 예시 테스트를 지우며 규칙 테스트를 채운다. 맨 아래 보안·문서 계약 절은 그대로 둔다.
 """
 import copy
 import json
 import os
 import re
+import sys
+import tempfile
 import unittest
 
 try:
@@ -107,19 +109,27 @@ class TestContract(unittest.TestCase):
 
 
 # ---------------------------------------------------------------- 보안·문서 계약 (제출 전 1회)
+STATUS_RE = re.compile(r'^Status:\s*`?\s*([A-Za-z]+)')
+
+
+def task_status(root=ROOT):
+    """TASK.md 의 Status 값 = 'Status:' 뒤 첫 단어(백틱 안). 같은 줄 안내 문구 '(… 제출 전 `FROZEN`)' 속 단어는 무시한다."""
+    p = os.path.join(root, 'TASK.md')
+    if not os.path.exists(p):
+        return ''
+    with open(p, encoding='utf-8', errors='ignore') as fh:
+        for line in fh:
+            m = STATUS_RE.match(line)
+            if m:
+                return m.group(1).upper()
+    return ''
+
+
 class TestSubmissionContract(unittest.TestCase):
     """제출 전 1회: TASK.md 의 Status 가 FROZEN 일 때만 검사한다(동결 전에는 skip — 진입점·README 가 아직 없을 수 있다)."""
 
     def setUp(self):
-        p = os.path.join(ROOT, 'TASK.md')
-        status = ''
-        if os.path.exists(p):
-            with open(p, encoding='utf-8', errors='ignore') as fh:
-                for line in fh:
-                    if line.startswith('Status:'):
-                        status = line
-                        break
-        if 'FROZEN' not in status:
+        if task_status() != 'FROZEN':
             self.skipTest('동결 전(TASK.md Status 가 FROZEN 이 아님) — 제출 계약 검사는 동결 후에')
 
     def test_no_template_phrases_in_submission_docs(self):
@@ -144,6 +154,25 @@ class TestSubmissionContract(unittest.TestCase):
             if '<' in m.group(1):
                 continue
             self.assertTrue(os.path.exists(path), 'README 가 가리키는 진입점 없음: %s' % m.group(1))
+
+
+class TestStatusGuard(unittest.TestCase):
+    """제출 계약 검사가 동결 전에 돌지 않게: Status 값만 읽고 안내 문구 속 FROZEN 은 무시한다."""
+
+    def status_of(self, line):
+        with tempfile.TemporaryDirectory() as d:
+            if line is not None:
+                with open(os.path.join(d, 'TASK.md'), 'w', encoding='utf-8') as fh:
+                    fh.write('# TASK\n\n%s\n' % line)
+            return task_status(d)
+
+    def test_status_reads_only_its_own_value(self):
+        guide = '  (시작하면 `ACTIVE`, 제출 전 `FROZEN`)'
+        self.assertEqual(self.status_of('Status: `TEMPLATE`' + guide), 'TEMPLATE')
+        self.assertEqual(self.status_of('Status: `ACTIVE`' + guide), 'ACTIVE')
+        self.assertEqual(self.status_of('Status: `FROZEN`' + guide), 'FROZEN')
+        self.assertEqual(self.status_of('Status: frozen'), 'FROZEN')
+        self.assertEqual(self.status_of(None), '')
 
 
 if __name__ == '__main__':
