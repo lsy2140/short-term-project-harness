@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FAB-1 B라인 현황판</title>
+<!-- 템플릿: 대시보드 = 상단바(전폭) + KPI 4 + 설비 상태 보드 + SPC 스파크라인 + 로트 표 + 알람 패널.
+     데이터: 같은 키트의 data.json 을 fetch (../data.json → data.json 순). 실패하면 내장 샘플로 렌더하고 배너에 fallback 을 표시한다.
+     과제에 복사할 때: CSS 경로·DATA_URLS 를 과제 구조에 맞게 바꾸고, render() 의 data→DOM 매핑만 교체한다. -->
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../components.css">
+</head>
+<body>
+<header class="topbar full">
+  <div class="bar">
+    <div class="ident">
+      <div class="logo sq" aria-hidden="true">M14</div>
+      <div class="brand-text"><b>FAB-1 B라인 현황판</b><small>생산기술 2팀</small></div>
+    </div>
+    <div class="actions">
+      <span class="badge ok live" id="live-chip">실시간</span>
+      <span class="meta hide-sm" id="asof">기준 시각 확인 중</span>
+      <button class="btn sm" type="button" id="btn-reload">새로고침</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <h1>오늘 B라인 현황</h1>
+  <p class="lead">수율·가동률·멈춘 설비·홀드 로트를 교대 시작 1분 안에 읽는다. 상태는 색과 글자로 함께 표시한다.</p>
+
+  <div class="stack tight">
+    <div class="banner" id="status" hidden></div>
+    <div class="banner bad" id="alarm-banner" hidden></div>
+  </div>
+
+  <section class="section" id="sec-kpi">
+    <h2>핵심 지표</h2>
+    <p class="why">수율 → 가동률 → WIP → 알람 순. 전일 대비 변화는 녹색(개선)·적색(악화)으로 표시한다.</p>
+    <div class="kpi" id="kpi"></div>
+  </section>
+
+  <section class="section" id="sec-eq">
+    <h2>설비 상태 보드</h2>
+    <p class="why">SEMI E10 축약 5상태. 좌측 색 막대와 상태 글자를 함께 둔다(색각 이상·흑백 인쇄 대비).</p>
+    <div class="legend" id="legend"></div>
+    <div class="eq-board" id="eq-board" style="margin-top: var(--s-3)"></div>
+  </section>
+
+  <section class="section" id="sec-spc">
+    <h2>SPC 추세</h2>
+    <p class="why" id="spc-why">관리 한계(UCL/LCL)는 점선, 목표는 회색 실선, 이탈 점은 적색 원.</p>
+    <div class="card" id="spc"></div>
+  </section>
+
+  <section class="section" id="sec-lots">
+    <h2>진행 로트</h2>
+    <p class="why">LOT_ID → 제품 → 공정 → 설비 → 수량 → 시작/종료 → 상태 → 홀드 사유. 숫자는 우정렬, 식별자는 고정폭.</p>
+    <div class="table-tools">
+      <div class="row">
+        <label for="lot-filter" class="meta">로트·설비 검색</label>
+        <input id="lot-filter" class="input" type="search" autocomplete="off" style="min-height: 36px; width: 220px">
+      </div>
+      <span class="meta" id="lot-count"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="lot-table">
+        <thead>
+          <tr><th>LOT_ID</th><th>제품</th><th>공정</th><th>설비</th><th class="num">수량(매)</th><th>시작</th><th>종료</th><th>상태</th><th>홀드 사유</th></tr>
+        </thead>
+        <tbody id="lot-body"></tbody>
+        <tfoot><tr><td colspan="4">합계</td><td class="num" id="lot-qty"></td><td colspan="4" id="lot-foot"></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="sec-alarms">
+    <h2>알람</h2>
+    <p class="why">심각도 Critical/Major/Minor → 적/황/청. 최신순. 확인(ack)하면 확인자·시각을 남긴다.</p>
+    <div class="alarm-list" id="alarm-list"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var DATA_URLS = ['../data.json', 'data.json'];
+  // 내장 샘플(fallback): data.json 을 못 읽어도 화면 구조가 보이도록 최소 데이터만 둔다.
+  var FALLBACK = {
+    meta: {line: 'FAB-1 B라인', asof: '2026-10-28T09:00:00+09:00', shift: '주간조'},
+    kpi: [
+      {key: 'yield', label: '수율', value: 94.2, unit: '%', delta: 0.6, delta_label: '전일 대비', series: [93.1, 93.4, 93.0, 93.8, 94.1, 93.9, 94.2]},
+      {key: 'alarms', label: '알람(24시간)', value: 7, unit: '건', delta: -3, delta_label: '전일 대비', series: [12, 9, 11, 8, 10, 10, 7]}
+    ],
+    equipment: [
+      {id: 'PHO-01', name: '노광기 1호', step: 'PHOTO', state: 'RUN', util: 92, note: ''},
+      {id: 'ETC-03', name: '식각기 3호', step: 'ETCH', state: 'DOWN', util: 0, note: '챔버 압력 상한 초과'},
+      {id: 'DEP-02', name: '증착기 2호', step: 'CVD', state: 'PM', util: 0, note: '정기 PM'}
+    ],
+    lots: [
+      {lot: 'LOT-24A113', product: 'DDR5 16Gb', step: 'ETCH', eqp: 'ETC-01', qty: 25, start: '2026-10-28T06:10+09:00', end: null, state: 'RUN', hold: ''},
+      {lot: 'LOT-24A114', product: 'DDR5 16Gb', step: 'ETCH', eqp: 'ETC-03', qty: 25, start: '2026-10-28T05:40+09:00', end: null, state: 'HOLD', hold: '설비 DOWN(ETC-03)'}
+    ],
+    alarms: [{id: 'ALM-5531', sev: 'Critical', eqp: 'ETC-03', msg: '챔버 압력 상한 초과', at: '2026-10-28T05:52+09:00', ack: false}],
+    spc: {param: '게이트 CD', unit: 'nm', target: 50, ucl: 52, lcl: 48, points: [50.1, 49.6, 50.4, 51.1, 49.8, 50.2, 52.4, 50.6], labels: ['01', '02', '03', '04', '05', '06', '07', '08']}
+  };
+  var EQ_STATE = {RUN: ['ok', '가동'], IDLE: ['info', '대기'], PM: ['warn', 'PM'], DOWN: ['bad', '고장'], OFF: ['off', '비가동']};
+  var LOT_STATE = {RUN: ['ok', '진행'], HOLD: ['bad', '홀드'], WAIT: ['info', '대기'], DONE: ['off', '완료']};
+  var SEV = {Critical: 'bad', Major: 'warn', Minor: 'info'};
+  var state = {data: null, lots: []};
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+  }
+  function hhmm(iso) { var m = /T(\d{2}:\d{2})/.exec(iso || ''); return m ? m[1] : '-'; }
+  function badge(kind, text, extra) { return '<span class="badge ' + kind + (extra ? ' ' + extra : '') + '">' + esc(text) + '</span>'; }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.timer); toast.timer = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function setStatus(kind, msg) {
+    var el = document.getElementById('status');
+    var cls = {ok: 'ok', fallback: 'warn', failed: 'bad'}[kind] || 'warn';
+    var head = {ok: '데이터 정상', fallback: '내장 샘플 표시 중', failed: '렌더 실패'}[kind];
+    el.className = 'banner ' + cls;
+    el.innerHTML = '<b>' + esc(head) + '</b><span>' + esc(msg) + '</span>';
+    el.hidden = false;
+    var chip = document.getElementById('live-chip');
+    chip.className = 'badge ' + cls + (kind === 'ok' ? ' live' : '');
+    chip.textContent = {ok: '실시간', fallback: '샘플', failed: '오류'}[kind];
+  }
+  // 인라인 SVG 스파크라인: 차트 라이브러리 없이 추세 + UCL/LCL + 이탈 점
+  function spark(series, opt) {
+    opt = opt || {};
+    var W = opt.w || 120, H = opt.h || 32, pad = 4;
+    var lim = series.slice();
+    if (opt.ucl != null) lim.push(opt.ucl);
+    if (opt.lcl != null) lim.push(opt.lcl);
+    var min = Math.min.apply(null, lim), max = Math.max.apply(null, lim);
+    if (max === min) max = min + 1;
+    var n = Math.max(1, series.length - 1);
+    var x = function (i) { return (pad + i * (W - 2 * pad) / n).toFixed(1); };
+    var y = function (v) { return (H - pad - (v - min) * (H - 2 * pad) / (max - min)).toFixed(1); };
+    var s = '<svg class="spark' + (opt.cls ? ' ' + opt.cls : '') + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(opt.label || '추세') + '">';
+    if (opt.target != null) s += '<line class="target" x1="0" x2="' + W + '" y1="' + y(opt.target) + '" y2="' + y(opt.target) + '"/>';
+    if (opt.ucl != null) s += '<line class="limit" x1="0" x2="' + W + '" y1="' + y(opt.ucl) + '" y2="' + y(opt.ucl) + '"/>';
+    if (opt.lcl != null) s += '<line class="limit" x1="0" x2="' + W + '" y1="' + y(opt.lcl) + '" y2="' + y(opt.lcl) + '"/>';
+    s += '<polyline class="line" points="' + series.map(function (v, i) { return x(i) + ',' + y(v); }).join(' ') + '"/>';
+    series.forEach(function (v, i) {
+      if ((opt.ucl != null && v > opt.ucl) || (opt.lcl != null && v < opt.lcl)) s += '<circle class="ooc" cx="' + x(i) + '" cy="' + y(v) + '" r="3"/>';
+    });
+    return s + '</svg>';
+  }
+
+  function renderKpi(kpi) {
+    document.getElementById('kpi').innerHTML = kpi.map(function (k) {
+      var better = k.key === 'alarms' ? k.delta <= 0 : k.delta >= 0;
+      var dcls = k.delta === 0 ? '' : (better ? 'up' : 'down');
+      var sign = k.delta > 0 ? '+' : '';
+      return '<div class="card"><div class="label">' + esc(k.label) + '</div>' +
+        '<div class="value num">' + esc(k.value) + '<small>' + esc(k.unit) + '</small></div>' +
+        '<div class="delta ' + dcls + '">' + esc(k.delta_label || '') + ' ' + sign + esc(k.delta) + esc(k.unit === '%' ? '%p' : k.unit) + '</div>' +
+        spark(k.series || [], {label: k.label + ' 7일 추세'}) + '</div>';
+    }).join('');
+  }
+  function renderEq(eqs) {
+    var counts = {};
+    document.getElementById('eq-board').innerHTML = eqs.map(function (e) {
+      var st = EQ_STATE[e.state] || EQ_STATE.OFF;
+      counts[e.state] = (counts[e.state] || 0) + 1;
+      return '<div class="eq" data-state="' + esc(e.state) + '">' +
+        '<div class="row between"><span class="id">' + esc(e.id) + '</span><span class="st">' + esc(st[1]) + '</span></div>' +
+        '<div class="name">' + esc(e.name) + ' / ' + esc(e.step) + '</div>' +
+        '<div class="progress' + (e.state === 'DOWN' ? ' bad' : e.state === 'PM' ? ' warn' : '') + '" aria-label="가동률 ' + esc(e.util) + '%"><i style="width:' + Math.max(0, Math.min(100, Number(e.util) || 0)) + '%"></i></div>' +
+        (e.note ? '<div class="meta">' + esc(e.note) + '</div>' : '') + '</div>';
+    }).join('');
+    document.getElementById('legend').innerHTML = Object.keys(EQ_STATE).map(function (k) {
+      return badge(EQ_STATE[k][0], EQ_STATE[k][1] + ' ' + (counts[k] || 0));
+    }).join('');
+  }
+  function renderSpc(spc) {
+    var ooc = spc.points.filter(function (v) { return v > spc.ucl || v < spc.lcl; }).length;
+    document.getElementById('spc-why').textContent = spc.param + '(' + spc.unit + ') 목표 ' + spc.target + ', UCL ' + spc.ucl + ', LCL ' + spc.lcl + '. 관리 이탈 ' + ooc + '점.';
+    document.getElementById('spc').innerHTML =
+      '<div class="row between"><h3>' + esc(spc.param) + ' 최근 ' + spc.points.length + '로트</h3>' + (ooc ? badge('bad', '이탈 ' + ooc + '점') : badge('ok', '관리 상태')) + '</div>' +
+      spark(spc.points, {w: 600, h: 120, cls: 'lg', ucl: spc.ucl, lcl: spc.lcl, target: spc.target, label: spc.param + ' 추세'}) +
+      '<div class="row between meta"><span>' + esc(spc.labels[0]) + '</span><span>' + esc(spc.labels[spc.labels.length - 1]) + '</span></div>';
+  }
+  function renderLots(lots) {
+    var q = (document.getElementById('lot-filter').value || '').trim().toLowerCase();
+    var rows = lots.filter(function (l) { return !q || (l.lot + ' ' + l.eqp + ' ' + l.product).toLowerCase().indexOf(q) >= 0; });
+    var qty = 0;
+    document.getElementById('lot-body').innerHTML = rows.map(function (l) {
+      var st = LOT_STATE[l.state] || LOT_STATE.WAIT;
+      qty += Number(l.qty) || 0;
+      return '<tr class="' + (l.state === 'HOLD' ? 'row-bad' : l.state === 'WAIT' ? 'row-warn' : '') + '">' +
+        '<td class="id">' + esc(l.lot) + '</td><td>' + esc(l.product) + '</td><td>' + esc(l.step) + '</td><td class="id">' + esc(l.eqp) + '</td>' +
+        '<td class="num">' + esc(l.qty) + '</td><td class="num">' + hhmm(l.start) + '</td><td class="num">' + hhmm(l.end) + '</td>' +
+        '<td>' + badge(st[0], st[1]) + '</td><td>' + esc(l.hold || '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="meta">검색 결과가 없습니다. 검색어를 지우면 전체 로트가 보입니다.</td></tr>';
+    document.getElementById('lot-qty').textContent = qty;
+    document.getElementById('lot-foot').textContent = rows.length + '로트';
+    document.getElementById('lot-count').textContent = rows.length + ' / ' + lots.length + '건';
+  }
+  function renderAlarms(alarms) {
+    var list = alarms.slice().sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+    document.getElementById('alarm-list').innerHTML = list.map(function (a) {
+      return '<div class="alarm' + (a.ack ? ' acked' : '') + '" data-id="' + esc(a.id) + '">' +
+        badge(SEV[a.sev] || 'info', a.sev) +
+        '<div><div class="msg"><span class="id">' + esc(a.eqp) + '</span> ' + esc(a.msg) + '</div>' +
+        '<div class="when">' + esc(a.id) + ' ' + hhmm(a.at) + (a.ack ? ', 확인 ' + esc(a.ack_by || '') + ' ' + hhmm(a.ack_at) : '') + '</div></div>' +
+        (a.ack ? '<span class="badge off plain">확인됨</span>' : '<button class="btn sm" type="button" data-ack="' + esc(a.id) + '">확인</button>') + '</div>';
+    }).join('') || '<div class="empty"><b>알람이 없습니다</b>최근 24시간 동안 발생한 알람이 없습니다.</div>';
+    var crit = list.filter(function (a) { return !a.ack && a.sev === 'Critical'; });
+    var b = document.getElementById('alarm-banner');
+    if (crit.length) {
+      b.innerHTML = '<b>미확인 Critical ' + crit.length + '건</b><span>' + esc(crit[0].eqp + ' ' + crit[0].msg + ' (' + hhmm(crit[0].at) + ')') + '</span><span class="spacer"></span><a class="btn sm danger" href="#sec-alarms">알람 보기</a>';
+      b.hidden = false;
+    } else { b.hidden = true; }
+  }
+  function render(d) {
+    state.data = d;
+    state.lots = d.lots || [];
+    document.getElementById('asof').textContent = '기준 ' + hhmm(d.meta && d.meta.asof) + ' ' + esc(d.meta && d.meta.shift || '');
+    renderKpi(d.kpi || []);
+    renderEq(d.equipment || []);
+    renderSpc(d.spc || {points: [], labels: [], param: '-', unit: '', target: 0, ucl: 0, lcl: 0});
+    renderLots(state.lots);
+    renderAlarms(d.alarms || []);
+  }
+  function load(cb) {
+    var i = 0;
+    if (typeof fetch !== 'function') { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+    (function next() {
+      if (i >= DATA_URLS.length) { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+      var u = DATA_URLS[i++];
+      fetch(u, {cache: 'no-store'})
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (d) { cb(d, 'ok', u); })
+        .catch(function () { next(); });
+    })();
+  }
+  function boot() {
+    load(function (d, status, src) {
+      try {
+        render(d);
+        setStatus(status, status === 'ok' ? src + ' 로드, 기준 ' + hhmm(d.meta && d.meta.asof) : 'data.json 을 읽지 못해 내장 샘플을 보여준다. 서버 경로와 JSON 형식을 확인한다.');
+      } catch (e) {
+        setStatus('failed', '렌더 중 오류: ' + e.message + '. data.json 필드 이름을 확인한다.');
+      }
+    });
+  }
+  document.getElementById('lot-filter').addEventListener('input', function () { renderLots(state.lots); });
+  document.getElementById('btn-reload').addEventListener('click', function () { boot(); toast('새로고침 완료'); });
+  document.getElementById('alarm-list').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-ack]');
+    if (!btn) return;
+    var a = (state.data.alarms || []).filter(function (x) { return x.id === btn.getAttribute('data-ack'); })[0];
+    if (!a) return;
+    a.ack = true; a.ack_by = '주간조'; a.ack_at = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    renderAlarms(state.data.alarms);
+    toast('알람 ' + a.id + ' 확인 완료');
+  });
+  boot();
+})();
+</script>
+</body>
+</html>

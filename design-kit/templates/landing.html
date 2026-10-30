@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>B라인 현황 포털</title>
+<!-- 템플릿: 랜딩(작업자 화면) = 글래스 pill 헤더 + 더블베젤 히어로(좌 카피·CTA / 우 KPI 2×2, 1024px 이하 숨김)
+     + 섹션 바 h2 + '왜 이 섹션인가' 1줄 + 항목 카드 그리드(이미지 자리에 상태색 블록) + 빈 상태.
+     데이터: data.json 의 landing / equipment / kpi. 진입 애니메이션 없음(hover·active 만). -->
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .mini { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+  .mini .card { padding: 12px 14px; }
+  .mini .label { font-size: 12px; color: var(--muted); }
+  .mini .value { font-size: 22px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .mini .value small { font-size: 12px; color: var(--muted); font-weight: 600; margin-left: 2px; }
+  footer { margin-top: var(--s-8); padding: var(--s-5) 0; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="bar">
+    <div class="ident">
+      <div class="logo" aria-hidden="true">B</div>
+      <div class="brand-text"><b>B라인 현황 포털</b><small>M14 FAB-1</small></div>
+    </div>
+    <div class="actions">
+      <span class="badge hide-sm" id="data-chip">데이터 확인 중</span>
+      <a class="btn sm" href="dashboard.html">현황판</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="banner" id="status" hidden style="margin-bottom: var(--s-4)"></div>
+
+  <section class="bezel" aria-label="오늘의 요약">
+    <div class="core hero" id="hero">
+      <div>
+        <span class="pill" id="hero-pill">M14 FAB-1 B라인</span>
+        <h1 id="hero-title">오늘 라인 상태를 한 화면에서 확인한다</h1>
+        <p class="lead" id="hero-sub">수율·가동률·멈춘 설비·홀드 로트를 교대 시작 1분 안에 읽을 수 있게 정리했다.</p>
+        <a class="btn primary" id="hero-cta" href="dashboard.html">현황판 열기<span class="arrow" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+      </div>
+      <div class="mini hide-md" id="hero-kpi" aria-label="핵심 지표 4개"></div>
+    </div>
+  </section>
+
+  <div id="sections"></div>
+</main>
+
+<footer class="container" id="foot">생산기술 2팀, 데이터 기준 시각은 상단 배너에 표시</footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var DATA_URLS = ['../data.json', 'data.json'];
+  var FALLBACK = {
+    meta: {asof: '2026-10-28T09:00:00+09:00'},
+    kpi: [{label: '수율', value: 94.2, unit: '%'}, {label: '가동률(OEE)', value: 87.5, unit: '%'}, {label: 'WIP', value: 1284, unit: 'lot'}, {label: '알람(24시간)', value: 7, unit: '건'}],
+    equipment: [
+      {id: 'ETC-03', name: '식각기 3호', step: 'ETCH', state: 'DOWN', util: 0, note: '챔버 압력 상한 초과'},
+      {id: 'DEP-02', name: '증착기 2호', step: 'CVD', state: 'PM', util: 0, note: '정기 PM 12:00 종료 예정'}
+    ],
+    landing: {
+      hero: {pill: 'M14 FAB-1 B라인', title: '오늘 라인 상태를 한 화면에서 확인한다', subtitle: '내장 샘플 데이터로 표시 중.', cta: '현황판 열기', cta_href: 'dashboard.html'},
+      sections: [{title: '주의가 필요한 설비', why: 'DOWN·PM 설비만 모았다.', ids: ['ETC-03', 'DEP-02']}, {title: '오늘 공지', why: '공지가 없으면 빈 상태를 그대로 보여준다.', ids: []}]
+    }
+  };
+  var EQ_STATE = {RUN: ['ok', '가동'], IDLE: ['info', '대기'], PM: ['warn', 'PM'], DOWN: ['bad', '고장'], OFF: ['off', '비가동']};
+  var S = {data: null};
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+  }
+  function hhmm(iso) { var m = /T(\d{2}:\d{2})/.exec(iso || ''); return m ? m[1] : '-'; }
+  function badge(kind, text) { return '<span class="badge ' + kind + '">' + esc(text) + '</span>'; }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.timer); toast.timer = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function setStatus(kind, msg) {
+    var el = document.getElementById('status');
+    var cls = {ok: 'ok', fallback: 'warn', failed: 'bad'}[kind] || 'warn';
+    var head = {ok: '데이터 정상', fallback: '내장 샘플 표시 중', failed: '렌더 실패'}[kind];
+    el.className = 'banner ' + cls;
+    el.innerHTML = '<b>' + esc(head) + '</b><span>' + esc(msg) + '</span>';
+    el.hidden = kind === 'ok';   // 정상이면 배너를 숨기고 헤더 칩으로만 표시(작업자 화면은 조용하게)
+    var chip = document.getElementById('data-chip');
+    chip.className = 'badge hide-sm ' + cls + (kind === 'ok' ? ' live' : '');
+    chip.textContent = {ok: '정상 데이터', fallback: '샘플 데이터', failed: '데이터 오류'}[kind];
+  }
+  function eqById(id) { return (S.data.equipment || []).filter(function (e) { return e.id === id; })[0]; }
+
+  function renderHero(h, kpi) {
+    document.getElementById('hero-pill').textContent = h.pill;
+    document.getElementById('hero-title').textContent = h.title;
+    document.getElementById('hero-sub').textContent = h.subtitle;
+    var cta = document.getElementById('hero-cta');
+    cta.firstChild.textContent = h.cta;
+    if (/^[\w./-]+\.html$/.test(h.cta_href || '')) cta.setAttribute('href', h.cta_href);  // 외부·javascript: URL 은 받지 않는다
+    document.getElementById('hero-kpi').innerHTML = kpi.slice(0, 4).map(function (k) {
+      return '<div class="card"><div class="label">' + esc(k.label) + '</div><div class="value num">' + esc(k.value) + '<small>' + esc(k.unit) + '</small></div></div>';
+    }).join('');
+  }
+  function itemCard(e) {
+    var st = EQ_STATE[e.state] || EQ_STATE.OFF;
+    var tone = st[0] === 'ok' ? '' : st[0];
+    return '<div class="card item lift" data-id="' + esc(e.id) + '">' +
+      '<div class="media ' + tone + '"><span>' + esc(e.step) + '</span><span class="tl">' + badge(st[0], st[1]) + '</span>' + (e.util ? '<span class="tr badge plain">' + esc(e.util) + '%</span>' : '') + '</div>' +
+      '<div class="tags">' + badge('brand', e.step) + '</div>' +
+      '<div class="title">' + esc(e.name) + '</div>' +
+      '<div class="sub"><span class="id">' + esc(e.id) + '</span>' + (e.note ? ' ' + esc(e.note) : '') + '</div>' +
+      '<div class="actions"><a class="btn" href="dashboard.html#sec-eq">상세</a><button class="btn" type="button" data-call="' + esc(e.id) + '">담당자 호출</button></div></div>';
+  }
+  function renderSections(secs) {
+    document.getElementById('sections').innerHTML = secs.map(function (sec) {
+      var items = (sec.ids || []).map(eqById).filter(Boolean);
+      var body = items.length
+        ? '<div class="grid">' + items.map(itemCard).join('') + '</div>'
+        : '<div class="empty"><b>아직 올라온 항목이 없습니다</b>생산기술 2팀 콘솔에서 공지를 만들면 여기에 나타납니다.<div class="cta"><a class="btn" href="console.html">공지 만들기</a></div></div>';
+      return '<section class="section"><h2>' + esc(sec.title) + '</h2><p class="why">' + esc(sec.why) + '</p>' + body + '</section>';
+    }).join('');
+  }
+  function render(d) {
+    S.data = d;
+    renderHero(d.landing.hero, d.kpi || []);
+    renderSections(d.landing.sections || []);
+    document.getElementById('foot').textContent = '생산기술 2팀, 데이터 기준 ' + hhmm(d.meta && d.meta.asof);
+  }
+  function load(cb) {
+    var i = 0;
+    if (typeof fetch !== 'function') { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+    (function next() {
+      if (i >= DATA_URLS.length) { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+      var u = DATA_URLS[i++];
+      fetch(u, {cache: 'no-store'})
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (d) { cb(d, 'ok', u); })
+        .catch(function () { next(); });
+    })();
+  }
+  document.getElementById('sections').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-call]');
+    if (!b) return;
+    b.disabled = true; b.textContent = '호출 중';
+    setTimeout(function () { b.disabled = false; b.textContent = '담당자 호출'; toast(b.getAttribute('data-call') + ' 담당자 호출 완료'); }, 500);
+  });
+  load(function (d, status, src) {
+    try {
+      render(d);
+      setStatus(status, status === 'ok' ? src + ' 로드' : 'data.json 을 읽지 못해 내장 샘플을 보여준다. 서버 경로와 JSON 형식을 확인한다.');
+    } catch (e) { setStatus('failed', '렌더 중 오류: ' + e.message); }
+  });
+})();
+</script>
+</body>
+</html>

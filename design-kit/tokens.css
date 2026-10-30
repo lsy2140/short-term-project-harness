@@ -1,0 +1,75 @@
+/* design-kit/tokens.css — 디자인 토큰 1파일 (외부 요청 0, 순수 CSS)
+   규칙: 페이지 CSS·인라인 style 에서는 raw hex 금지, 반드시 var(--이름) 만 쓴다 (ui_check.py 가 검사).
+   브랜드 전환: 아래 [브랜드] 블록 한 곳만 바꾼다. --brand-rgb 는 --brand 와 같은 색의 R,G,B 세 값(틴트·링·광원이 여기서 파생).
+   대비: 글자/바탕 쌍은 모두 WCAG 4.5:1 이상으로 맞춰 두었다(ui_check.py contrast 항목). 브랜드를 바꾸면 --on-brand 와의 대비를 다시 확인한다.
+   바꿀 때는 --brand·--brand-rgb·--brand-deep·--brand-soft 4줄을 함께 바꾸고, 흰 글자 대비 4.5:1 이상인지 ui_check.py 로 확인한다. */
+:root {
+  /* [중립 7] 바탕·패널·잉크 2단·보조 글자·선 2단 */
+  --paper: #f7f8f5;
+  --panel: #ffffff;
+  --ink: #1c2420;
+  --ink-2: #434d47;
+  --muted: #5f6963;
+  --line: #e3e8e3;
+  --line-strong: #cfd6cf;
+
+  /* [브랜드 4] 한 곳만 바꾸면 전환 */
+  --brand: #0b7a53;
+  --brand-rgb: 11, 122, 83;
+  --brand-deep: #085c3f;
+  --brand-soft: #e4f4ec;
+
+  /* [의미색 5쌍] 글자/배경. 매핑 고정: ok=가동·정상·live / warn=PM·주의·fallback / bad=고장·알람·차단·failed / info=대기·정보 / off=비가동·없음 */
+  --ok: #15803d;   --ok-bg: #ecfdf3;
+  --warn: #b45309; --warn-bg: #fff7e6;
+  --bad: #b91c1c;  --bad-bg: #fef2f2;
+  --info: #1d4ed8; --info-bg: #eff6ff;
+  --off: #5b6470;  --off-bg: #f1f3f5;
+
+  /* [반경 5단] 외피 xl / 내피 calc(xl - 8px) 로 동심원 유지 */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* [그림자 2 + 링] 검정이 아니라 잉크색으로 틴트, 선 대신 5~10% 알파 링 */
+  --shadow-1: 0 1px 2px rgba(20, 40, 30, .04), 0 8px 24px -12px rgba(20, 40, 30, .14);
+  --shadow-2: 0 1px 2px rgba(20, 40, 30, .05), 0 18px 48px -18px rgba(20, 40, 30, .18);
+  --brand-ring: rgba(var(--brand-rgb), .10);
+  --ring: 0 0 0 1px var(--brand-ring);
+
+  /* [간격 8단] */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* [서체] 시스템 스택만(폰트 파일·CDN 없음). 한글은 Apple SD Gothic Neo / Malgun Gothic / Noto Sans KR 순 */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "D2Coding", monospace;
+
+  /* [파생 표면·틴트] 브랜드·잉크에서 파생. 직접 hex 를 새로 만들지 말고 여기에 추가한다 */
+  --surface-2: #fafbf9;            /* 표 헤더·tfoot·입력 바탕 */
+  --hover: #f3f6f3;                /* 행 hover */
+  --on-brand: #ffffff;             /* 브랜드색 위 글자 */
+  --on-ink: #ffffff;               /* 잉크색(검정 CTA·토스트) 위 글자 */
+  --glass: rgba(255, 255, 255, .72);     /* 글래스 pill 헤더 */
+  --bezel-bg: rgba(255, 255, 255, .55);  /* 더블베젤 외피 */
+  --bezel-inner: rgba(255, 255, 255, .70);
+  --glow-1: rgba(var(--brand-rgb), .10); /* 바탕 광원 우상 */
+  --glow-2: rgba(120, 170, 60, .08);     /* 바탕 광원 좌상 */
+  --focus: rgba(var(--brand-rgb), .35);  /* focus-visible 외곽선 */
+  --brand-tint-18: rgba(var(--brand-rgb), .18);
+  --brand-tint-25: rgba(var(--brand-rgb), .25);
+  --warn-line: rgba(180, 83, 9, .25);
+  --bad-line: rgba(185, 28, 28, .25);
+  --ok-line: rgba(21, 128, 61, .25);
+  --info-line: rgba(29, 78, 216, .25);
+  --hero-a: #f3f7ef;               /* 히어로 메시 끝색 2개 */
+  --hero-b: #e9f4ec;
+}

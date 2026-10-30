@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>설비 점검 앱</title>
+<!-- 템플릿: 모바일 앱형 = 앱바 + 단계형 폼(설비 선택 → 점검 항목 → 비고·제출) + 오늘 할 일 리스트 + 하단 탭바(safe-area) + 토스트.
+     폴드(844px) 안에 '핵심 숫자 1개 + 리스트 첫 2행' 이 보이도록 폼은 접힌 상태에서 시작한다. 390px 에서 1열, 가로 스크롤 없음.
+     데이터: data.json 의 mobile. 입력 검증은 화면에서 먼저(필수 선택·1개 이상 체크), 제출 시 토스트. -->
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+  .summary .card { padding: 12px 14px; }
+  .summary .label { font-size: 12px; color: var(--muted); }
+  .summary .value { font-size: 26px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .panel[hidden] { display: none; }
+  .checks { display: grid; gap: var(--s-2); }
+</style>
+</head>
+<body class="app">
+<header class="appbar">
+  <h1 id="app-title">설비 점검</h1>
+  <span class="badge" id="data-chip">확인 중</span>
+</header>
+
+<main>
+  <div class="banner" id="status" hidden></div>
+
+  <div class="summary" aria-label="오늘 요약">
+    <div class="card"><div class="label">오늘 할 일</div><div class="value num" id="n-tasks">0</div></div>
+    <div class="card"><div class="label">긴급</div><div class="value num" id="n-urgent" style="color: var(--bad)">0</div></div>
+  </div>
+
+  <section class="card" aria-labelledby="form-title">
+    <div class="row between">
+      <h2 id="form-title" style="font-size: 18px; margin: 0">점검 기록</h2>
+      <button class="btn sm" type="button" id="btn-open">시작</button>
+    </div>
+    <div id="form-wrap" hidden style="margin-top: var(--s-4)">
+      <div class="steps" id="steps" aria-label="진행 단계">
+        <b class="on">1</b><i></i><b>2</b><i></i><b>3</b>
+      </div>
+      <form class="form" id="form" novalidate style="margin-top: var(--s-4)">
+        <div class="panel" data-step="1">
+          <div class="field">
+            <label for="f-eqp">설비</label>
+            <select id="f-eqp" required><option value="">선택</option></select>
+            <span class="help">점검할 설비 ID. 목록에 없으면 담당자에게 요청한다.</span>
+            <span class="error" id="e-eqp" hidden>설비를 선택한다.</span>
+          </div>
+          <div class="btn-row"><button class="btn brand" type="button" data-next="2">다음</button></div>
+        </div>
+        <div class="panel" data-step="2" hidden>
+          <div class="field">
+            <span class="label" id="chk-label">점검 항목</span>
+            <div class="checks" id="checks" role="group" aria-labelledby="chk-label"></div>
+            <span class="error" id="e-chk" hidden>항목을 1개 이상 확인한다.</span>
+          </div>
+          <div class="btn-row"><button class="btn" type="button" data-next="1">이전</button><button class="btn brand" type="button" data-next="3">다음</button></div>
+        </div>
+        <div class="panel" data-step="3" hidden>
+          <div class="field">
+            <label for="f-note">비고</label>
+            <textarea id="f-note" maxlength="200" rows="3"></textarea>
+            <span class="help">이상이 있으면 수치와 함께 적는다. 예: 압력 2.3 Torr(기준 2.0)</span>
+          </div>
+          <div class="field">
+            <span class="label">확인</span>
+            <p class="meta" id="confirm"></p>
+          </div>
+          <div class="btn-row"><button class="btn" type="button" data-next="2">이전</button><button class="btn brand wide" type="submit" id="btn-submit">점검 결과 제출</button></div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section aria-labelledby="list-title">
+    <div class="row between" style="margin-bottom: var(--s-2)">
+      <h2 id="list-title" style="font-size: 18px; margin: 0">오늘 할 일</h2>
+      <span class="meta" id="list-meta"></span>
+    </div>
+    <div class="list" id="tasks"></div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="주요 메뉴">
+  <a href="#" class="on" aria-current="page"><span class="ico" aria-hidden="true">✓</span>점검</a>
+  <a href="dashboard.html"><span class="ico" aria-hidden="true">▦</span>설비</a>
+  <a href="dashboard.html#sec-alarms"><span class="ico" aria-hidden="true">!</span>알람</a>
+  <a href="#"><span class="ico" aria-hidden="true">●</span>내 정보</a>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var DATA_URLS = ['../data.json', 'data.json'];
+  var FALLBACK = {
+    mobile: {
+      title: '설비 점검',
+      equipment_options: ['ETC-03', 'DEP-02', 'PHO-02'],
+      checklist: [{id: 'c1', label: '챔버 압력 정상 범위'}, {id: 'c2', label: '인터락 해제 이력 없음'}],
+      tasks: [
+        {id: 'T-101', eqp: 'ETC-03', title: '고장 원인 1차 점검', due: '09:30', state: 'bad', state_label: '긴급'},
+        {id: 'T-102', eqp: 'DEP-02', title: 'PM 완료 확인 서명', due: '12:00', state: 'warn', state_label: 'PM'}
+      ]
+    }
+  };
+  var S = {m: null, step: 1, done: {}};
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+  }
+  function badge(kind, text) { return '<span class="badge ' + kind + '">' + esc(text) + '</span>'; }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.timer); toast.timer = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function setStatus(kind, msg) {
+    var el = document.getElementById('status');
+    var cls = {ok: 'ok', fallback: 'warn', failed: 'bad'}[kind] || 'warn';
+    var head = {ok: '데이터 정상', fallback: '내장 샘플', failed: '렌더 실패'}[kind];
+    el.className = 'banner ' + cls;
+    el.innerHTML = '<b>' + esc(head) + '</b><span>' + esc(msg) + '</span>';
+    el.hidden = kind === 'ok';
+    var chip = document.getElementById('data-chip');
+    chip.className = 'badge ' + cls + (kind === 'ok' ? ' live' : '');
+    chip.textContent = {ok: '동기화됨', fallback: '샘플', failed: '오류'}[kind];
+  }
+
+  function renderTasks() {
+    var tasks = S.m.tasks || [];
+    document.getElementById('tasks').innerHTML = tasks.map(function (t) {
+      var done = S.done[t.id];
+      return '<div class="card" data-id="' + esc(t.id) + '"' + (done ? ' style="opacity:.6"' : '') + '>' +
+        '<div class="avatar ' + esc(t.state) + '">' + esc(t.eqp.split('-')[0]) + '</div>' +
+        '<div><div class="t">' + esc(t.title) + '</div><div class="s"><span class="id">' + esc(t.eqp) + '</span> ' + esc(t.due) + ' 까지</div></div>' +
+        (done ? badge('ok', '완료') : badge(t.state, t.state_label)) + '</div>';
+    }).join('') || '<div class="empty"><b>오늘 할 일이 없습니다</b>새 점검이 배정되면 여기에 나타납니다.</div>';
+    var open = tasks.filter(function (t) { return !S.done[t.id]; });
+    document.getElementById('n-tasks').textContent = open.length;
+    document.getElementById('n-urgent').textContent = open.filter(function (t) { return t.state === 'bad'; }).length;
+    document.getElementById('list-meta').textContent = open.length + ' / ' + tasks.length + '건 남음';
+  }
+  function renderForm() {
+    var sel = document.getElementById('f-eqp');
+    sel.innerHTML = '<option value="">선택</option>' + (S.m.equipment_options || []).map(function (id) { return '<option value="' + esc(id) + '">' + esc(id) + '</option>'; }).join('');
+    document.getElementById('checks').innerHTML = (S.m.checklist || []).map(function (c) {
+      return '<label class="check"><input type="checkbox" name="chk" value="' + esc(c.id) + '"><span>' + esc(c.label) + '</span></label>';
+    }).join('');
+  }
+  function showStep(n) {
+    S.step = n;
+    Array.prototype.forEach.call(document.querySelectorAll('.panel'), function (p) { p.hidden = Number(p.getAttribute('data-step')) !== n; });
+    Array.prototype.forEach.call(document.querySelectorAll('#steps b'), function (b, i) { b.className = i + 1 < n ? 'done' : i + 1 === n ? 'on' : ''; });
+    if (n === 3) {
+      var checked = document.querySelectorAll('input[name="chk"]:checked').length;
+      document.getElementById('confirm').textContent = document.getElementById('f-eqp').value + ' 설비, 점검 항목 ' + checked + '개 확인. 제출하면 되돌릴 수 없다.';
+    }
+  }
+  function validate(step) {
+    if (step === 1) {
+      var ok = !!document.getElementById('f-eqp').value;
+      document.getElementById('e-eqp').hidden = ok;
+      document.getElementById('f-eqp').setAttribute('aria-invalid', ok ? 'false' : 'true');
+      return ok;
+    }
+    if (step === 2) {
+      var ok2 = document.querySelectorAll('input[name="chk"]:checked').length > 0;
+      document.getElementById('e-chk').hidden = ok2;
+      return ok2;
+    }
+    return true;
+  }
+  function load(cb) {
+    var i = 0;
+    if (typeof fetch !== 'function') { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+    (function next() {
+      if (i >= DATA_URLS.length) { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+      var u = DATA_URLS[i++];
+      fetch(u, {cache: 'no-store'})
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (d) { cb(d, 'ok', u); })
+        .catch(function () { next(); });
+    })();
+  }
+
+  document.getElementById('btn-open').addEventListener('click', function () {
+    var w = document.getElementById('form-wrap');
+    w.hidden = !w.hidden;
+    this.textContent = w.hidden ? '시작' : '접기';
+    if (!w.hidden) showStep(1);
+  });
+  document.getElementById('form').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-next]');
+    if (!b) return;
+    var to = Number(b.getAttribute('data-next'));
+    if (to > S.step && !validate(S.step)) return;
+    showStep(to);
+  });
+  document.getElementById('form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (!validate(1) || !validate(2)) { showStep(!validate(1) ? 1 : 2); return; }
+    var btn = document.getElementById('btn-submit');
+    btn.disabled = true; btn.textContent = '제출 중';
+    var eqp = document.getElementById('f-eqp').value;
+    setTimeout(function () {
+      (S.m.tasks || []).forEach(function (t) { if (t.eqp === eqp) S.done[t.id] = true; });
+      renderTasks();
+      btn.disabled = false; btn.textContent = '점검 결과 제출';
+      document.getElementById('form').reset();
+      document.getElementById('form-wrap').hidden = true;
+      document.getElementById('btn-open').textContent = '시작';
+      toast(eqp + ' 점검 결과 제출 완료');
+    }, 500);
+  });
+  load(function (d, status, src) {
+    try {
+      S.m = d.mobile || FALLBACK.mobile;
+      document.getElementById('app-title').textContent = S.m.title || '설비 점검';
+      renderForm(); renderTasks();
+      setStatus(status, status === 'ok' ? src + ' 로드' : 'data.json 을 읽지 못해 내장 샘플을 보여준다.');
+    } catch (e) { setStatus('failed', '렌더 중 오류: ' + e.message); }
+  });
+})();
+</script>
+</body>
+</html>

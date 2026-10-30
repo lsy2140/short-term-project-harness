@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.preflight_write_test
+AGENTS.pdf
+RUN.pdf
+docs/*.pdf
+data/edge/
+screenshots/
+design-kit/DESIGN.pdf
+.tmp/
+.archify/
+*.stackdump

@@ -1,0 +1,104 @@
+{
+  "meta": {
+    "site": "M14",
+    "line": "FAB-1 B라인",
+    "asof": "2026-10-28T09:00:00+09:00",
+    "shift": "주간조 06:00-18:00",
+    "owner": "생산기술 2팀",
+    "note": "더미 데이터. 결정적 시드로 만든 예시이며 실제 라인 값이 아니다."
+  },
+  "kpi": [
+    {"key": "yield", "label": "수율", "value": 94.2, "unit": "%", "delta": 0.6, "delta_label": "전일 대비", "series": [93.1, 93.4, 93.0, 93.8, 94.1, 93.9, 94.2]},
+    {"key": "oee", "label": "가동률(OEE)", "value": 87.5, "unit": "%", "delta": -1.2, "delta_label": "전일 대비", "series": [89.0, 88.6, 88.9, 88.1, 88.7, 88.4, 87.5]},
+    {"key": "wip", "label": "WIP", "value": 1284, "unit": "lot", "delta": 36, "delta_label": "전일 대비", "series": [1210, 1225, 1248, 1236, 1262, 1248, 1284]},
+    {"key": "alarms", "label": "알람(24시간)", "value": 7, "unit": "건", "delta": -3, "delta_label": "전일 대비", "series": [12, 9, 11, 8, 10, 10, 7]}
+  ],
+  "equipment": [
+    {"id": "PHO-01", "name": "노광기 1호", "step": "PHOTO", "state": "RUN", "util": 92, "note": ""},
+    {"id": "PHO-02", "name": "노광기 2호", "step": "PHOTO", "state": "RUN", "util": 88, "note": ""},
+    {"id": "ETC-01", "name": "식각기 1호", "step": "ETCH", "state": "IDLE", "util": 41, "note": "로트 대기"},
+    {"id": "ETC-03", "name": "식각기 3호", "step": "ETCH", "state": "DOWN", "util": 0, "note": "챔버 압력 상한 초과"},
+    {"id": "DEP-01", "name": "증착기 1호", "step": "CVD", "state": "RUN", "util": 95, "note": ""},
+    {"id": "DEP-02", "name": "증착기 2호", "step": "CVD", "state": "PM", "util": 0, "note": "정기 PM 12:00 종료 예정"},
+    {"id": "CMP-01", "name": "연마기 1호", "step": "CMP", "state": "RUN", "util": 79, "note": ""},
+    {"id": "IMP-01", "name": "이온주입기 1호", "step": "IMPLANT", "state": "RUN", "util": 83, "note": ""},
+    {"id": "CLN-01", "name": "세정기 1호", "step": "CLEAN", "state": "IDLE", "util": 55, "note": ""},
+    {"id": "MET-01", "name": "계측기 1호", "step": "METRO", "state": "RUN", "util": 71, "note": ""},
+    {"id": "MET-02", "name": "계측기 2호", "step": "METRO", "state": "OFF", "util": 0, "note": "비가동(설비 이설)"},
+    {"id": "DIF-01", "name": "확산로 1호", "step": "DIFF", "state": "RUN", "util": 97, "note": ""}
+  ],
+  "lots": [
+    {"lot": "LOT-24A113", "product": "DDR5 16Gb", "step": "ETCH", "eqp": "ETC-01", "qty": 25, "start": "2026-10-28T06:10+09:00", "end": null, "state": "RUN", "hold": ""},
+    {"lot": "LOT-24A114", "product": "DDR5 16Gb", "step": "ETCH", "eqp": "ETC-03", "qty": 25, "start": "2026-10-28T05:40+09:00", "end": null, "state": "HOLD", "hold": "설비 DOWN(ETC-03) — 재배정 필요"},
+    {"lot": "LOT-24A098", "product": "HBM3E 코어", "step": "PHOTO", "eqp": "PHO-01", "qty": 24, "start": "2026-10-28T07:05+09:00", "end": null, "state": "RUN", "hold": ""},
+    {"lot": "LOT-24A099", "product": "HBM3E 코어", "step": "CVD", "eqp": "DEP-01", "qty": 25, "start": "2026-10-28T04:30+09:00", "end": "2026-10-28T08:20+09:00", "state": "DONE", "hold": ""},
+    {"lot": "LOT-24A101", "product": "NAND 238L", "step": "CMP", "eqp": "CMP-01", "qty": 23, "start": "2026-10-28T07:50+09:00", "end": null, "state": "RUN", "hold": ""},
+    {"lot": "LOT-24A102", "product": "NAND 238L", "step": "METRO", "eqp": "MET-01", "qty": 25, "start": "2026-10-28T08:40+09:00", "end": null, "state": "RUN", "hold": ""},
+    {"lot": "LOT-24A087", "product": "DDR5 16Gb", "step": "IMPLANT", "eqp": "IMP-01", "qty": 25, "start": "2026-10-27T23:10+09:00", "end": "2026-10-28T02:45+09:00", "state": "DONE", "hold": ""},
+    {"lot": "LOT-24A120", "product": "HBM3E 코어", "step": "CVD", "eqp": "DEP-02", "qty": 25, "start": null, "end": null, "state": "WAIT", "hold": "DEP-02 PM 종료 대기"}
+  ],
+  "alarms": [
+    {"id": "ALM-5531", "sev": "Critical", "eqp": "ETC-03", "msg": "챔버 압력 상한 초과 — 설비 DOWN 전환", "at": "2026-10-28T05:52+09:00", "ack": false},
+    {"id": "ALM-5528", "sev": "Major", "eqp": "PHO-02", "msg": "오버레이 편차 경고(0.8nm, 한계 1.0nm)", "at": "2026-10-28T04:15+09:00", "ack": false},
+    {"id": "ALM-5524", "sev": "Minor", "eqp": "CLN-01", "msg": "약액 잔량 20% 미만", "at": "2026-10-28T02:30+09:00", "ack": true, "ack_by": "야간조 김OO", "ack_at": "2026-10-28T02:41+09:00"},
+    {"id": "ALM-5519", "sev": "Major", "eqp": "DEP-02", "msg": "PM 주기 도래 — 예방보전 시작", "at": "2026-10-27T23:58+09:00", "ack": true, "ack_by": "야간조 박OO", "ack_at": "2026-10-28T00:05+09:00"}
+  ],
+  "spc": {
+    "param": "게이트 CD",
+    "unit": "nm",
+    "target": 50.0,
+    "ucl": 52.0,
+    "lcl": 48.0,
+    "points": [50.1, 49.6, 50.4, 51.1, 49.8, 50.2, 52.4, 50.6, 49.9, 50.3, 50.8, 49.7],
+    "labels": ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+  },
+  "console": {
+    "draft": {
+      "pill": "FAB-1 B라인 주간조 인수인계",
+      "title": "오늘 B라인에서 먼저 볼 것 3가지",
+      "subtitle": "ETC-03 고장 로트 재배정, DEP-02 PM 12시 종료, HBM3E 코어 로트 2건 우선 처리.",
+      "cta": "현황판 열기"
+    },
+    "sections": [
+      {"id": "sec-down", "title": "지금 멈춘 설비", "why": "DOWN 상태 설비 1대와 영향 로트 1건이 있어 교대 시작 직후 확인해야 한다.", "items": ["ETC-03"]},
+      {"id": "sec-pm", "title": "PM 진행 중", "why": "DEP-02 정기 PM 종료(12:00) 전까지 CVD 로트는 DEP-01로만 흐른다.", "items": ["DEP-02", "DEP-01"]},
+      {"id": "sec-watch", "title": "주의 관찰", "why": "PHO-02 오버레이 편차가 한계의 80%에 도달했다.", "items": ["PHO-02", "CLN-01"]}
+    ],
+    "evidence": [
+      {"fact": "ETC-03 DOWN 05:52, 영향 로트 LOT-24A114(25매) HOLD", "source": "alarms[ALM-5531], lots[LOT-24A114]", "next": "ETC-01로 재배정 후 담당자 확인"},
+      {"fact": "DEP-02 PM 00:05 시작, 12:00 종료 예정", "source": "equipment[DEP-02].note", "next": "12:00 이후 LOT-24A120 투입"},
+      {"fact": "PHO-02 오버레이 편차 0.8nm (한계 1.0nm)", "source": "alarms[ALM-5528]", "next": "계측 주기 2배로 단축"}
+    ],
+    "banned": ["무결점", "100% 보장", "절대 안전", "문제 없음"],
+    "max_excluded": 2
+  },
+  "landing": {
+    "hero": {
+      "pill": "M14 FAB-1 B라인",
+      "title": "오늘 라인 상태를 한 화면에서 확인한다",
+      "subtitle": "수율·가동률·멈춘 설비·홀드 로트를 교대 시작 1분 안에 읽을 수 있게 정리했다.",
+      "cta": "현황판 열기",
+      "cta_href": "dashboard.html"
+    },
+    "sections": [
+      {"title": "주의가 필요한 설비", "why": "DOWN·PM·경고 알람이 걸린 설비만 모았다. 정상 설비는 현황판에서 본다.", "ids": ["ETC-03", "DEP-02", "PHO-02", "CLN-01"]},
+      {"title": "오늘 공지", "why": "생산기술 2팀이 올린 공지. 없으면 빈 상태를 그대로 보여준다.", "ids": []}
+    ]
+  },
+  "mobile": {
+    "title": "설비 점검",
+    "equipment_options": ["PHO-01", "PHO-02", "ETC-01", "ETC-03", "DEP-01", "DEP-02", "CMP-01"],
+    "checklist": [
+      {"id": "c1", "label": "챔버 압력 정상 범위(≤ 2.0 Torr)"},
+      {"id": "c2", "label": "가스 유량 설정값과 일치(sccm)"},
+      {"id": "c3", "label": "인터락 해제 이력 없음"},
+      {"id": "c4", "label": "파티클 카운트 기준 이하"}
+    ],
+    "tasks": [
+      {"id": "T-101", "eqp": "ETC-03", "title": "고장 원인 1차 점검", "due": "09:30", "state": "bad", "state_label": "긴급"},
+      {"id": "T-102", "eqp": "DEP-02", "title": "PM 완료 확인 서명", "due": "12:00", "state": "warn", "state_label": "PM"},
+      {"id": "T-103", "eqp": "PHO-02", "title": "오버레이 재계측", "due": "10:00", "state": "info", "state_label": "관찰"},
+      {"id": "T-104", "eqp": "CLN-01", "title": "약액 보충", "due": "11:00", "state": "ok", "state_label": "일반"}
+    ]
+  }
+}

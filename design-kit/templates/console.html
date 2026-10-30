@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>인수인계 공지 콘솔</title>
+<!-- 템플릿: 운영자 콘솔 = 좌측 '라이브 미리보기'(베젤 프레임 안에 작업자 화면을 그대로 렌더) / 우측 컨트롤 카드 스택
+     (문구 수정, 설비 제외 칩, 섹션 순서 ↑↓, 근거 패널, 발행 버튼 + 차단 알림). 1024px 이하에서는 미리보기 → 컨트롤 순 1열.
+     데이터: data.json 의 console / equipment. 금지어·제외 한도·DOWN 설비 누락은 '발행 차단' 으로 드러낸다(숨기지 않는다). -->
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .preview { padding: var(--s-5); display: grid; gap: var(--s-5); }
+  .preview .hero { padding: var(--s-6) var(--s-5); }
+  .preview h3#pv-title { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 var(--s-2); }
+  .preview .sec h4 { display: flex; align-items: center; gap: 10px; font-size: 15px; margin: 0 0 4px; }
+  .preview .sec h4::before { content: ""; width: 5px; height: 18px; border-radius: var(--r-pill); background: linear-gradient(var(--brand), var(--brand-deep)); }
+  .preview .sec .why { font-size: 12px; color: var(--muted); margin: 0 0 var(--s-2) 15px; }
+  .preview .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-2); }
+  .ctl .card h3 { margin-bottom: var(--s-3); }
+  .vio { margin: 0; padding-left: 18px; font-size: 13px; }
+  .vio li { margin: 2px 0; }
+</style>
+</head>
+<body>
+<header class="topbar full">
+  <div class="bar">
+    <div class="ident">
+      <div class="logo sq" aria-hidden="true">M14</div>
+      <div class="brand-text"><b>인수인계 공지 콘솔</b><small>FAB-1 B라인 생산기술 2팀</small></div>
+    </div>
+    <div class="actions">
+      <span class="badge" id="pub-chip">초안</span>
+      <a class="btn sm" href="landing.html">작업자 화면</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <h1>주간조 인수인계 공지 만들기</h1>
+  <p class="lead">왼쪽은 작업자가 보게 될 화면 그대로, 오른쪽은 문구·포함 설비·순서를 바꾸는 컨트롤이다. 바꾸면 즉시 반영된다.</p>
+  <div class="banner" id="status" hidden></div>
+
+  <div class="split" style="margin-top: var(--s-5)">
+    <section class="bezel" aria-labelledby="pv-h2">
+      <h2 class="sr-only" id="pv-h2">미리보기</h2>
+      <div class="core preview" id="preview">
+        <div class="skeleton block"></div>
+        <div class="skeleton line"></div>
+        <div class="skeleton line" style="width: 60%"></div>
+      </div>
+    </section>
+
+    <aside class="stack ctl" aria-labelledby="ctl-h2">
+      <h2 class="sr-only" id="ctl-h2">편집 컨트롤</h2>
+      <div class="card">
+        <h3>문구 수정</h3>
+        <div class="form">
+          <div class="field">
+            <label for="f-title">제목</label>
+            <input id="f-title" type="text" maxlength="60">
+            <span class="help">60자 이내. 금지어가 들어가면 발행이 차단된다.</span>
+          </div>
+          <div class="field">
+            <label for="f-sub">부제</label>
+            <textarea id="f-sub" maxlength="160"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>설비 제외</h3>
+        <p class="meta" id="ex-help"></p>
+        <div class="chips" id="ex-chips"></div>
+        <div class="order-list" id="inc-list" style="margin-top: var(--s-3)"></div>
+      </div>
+
+      <div class="card">
+        <h3>섹션 순서</h3>
+        <div class="order-list" id="order"></div>
+      </div>
+
+      <div class="card">
+        <h3>근거</h3>
+        <p class="meta">각 줄은 사실 → 출처(데이터 좌표) → 다음 행동. 심사자·담당자가 같은 줄을 본다.</p>
+        <div class="stack tight" id="evidence"></div>
+      </div>
+
+      <div class="card">
+        <h3>발행</h3>
+        <div class="banner bad" id="violations" hidden></div>
+        <p class="meta" id="pub-summary" style="margin-top: var(--s-3)"></p>
+        <div class="btn-row">
+          <button class="btn brand" type="button" id="btn-publish">발행</button>
+          <button class="btn ghost" type="button" id="btn-reset">초안으로 되돌리기</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var DATA_URLS = ['../data.json', 'data.json'];
+  var FALLBACK = {
+    equipment: [
+      {id: 'ETC-03', name: '식각기 3호', step: 'ETCH', state: 'DOWN', util: 0, note: '챔버 압력 상한 초과'},
+      {id: 'DEP-02', name: '증착기 2호', step: 'CVD', state: 'PM', util: 0, note: '정기 PM 12:00 종료 예정'},
+      {id: 'DEP-01', name: '증착기 1호', step: 'CVD', state: 'RUN', util: 95, note: ''},
+      {id: 'PHO-02', name: '노광기 2호', step: 'PHOTO', state: 'RUN', util: 88, note: ''}
+    ],
+    console: {
+      draft: {pill: 'FAB-1 B라인 주간조 인수인계', title: '오늘 B라인에서 먼저 볼 것', subtitle: 'ETC-03 고장 로트 재배정, DEP-02 PM 12시 종료.', cta: '현황판 열기'},
+      sections: [
+        {id: 'sec-down', title: '지금 멈춘 설비', why: 'DOWN 설비 1대.', items: ['ETC-03']},
+        {id: 'sec-pm', title: 'PM 진행 중', why: 'DEP-02 PM 종료 전까지 CVD 는 DEP-01 로만.', items: ['DEP-02', 'DEP-01']}
+      ],
+      evidence: [{fact: 'ETC-03 DOWN 05:52', source: 'alarms[ALM-5531]', next: 'ETC-01 로 재배정'}],
+      banned: ['무결점', '100% 보장', '절대 안전', '문제 없음'],
+      max_excluded: 2
+    }
+  };
+  var EQ_STATE = {RUN: ['ok', '가동'], IDLE: ['info', '대기'], PM: ['warn', 'PM'], DOWN: ['bad', '고장'], OFF: ['off', '비가동']};
+  var S = {data: null, draft: null, sections: [], excluded: [], published: false};
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+    });
+  }
+  function hhmm(iso) { var m = /T(\d{2}:\d{2})/.exec(iso || ''); return m ? m[1] : '-'; }
+  function badge(kind, text) { return '<span class="badge ' + kind + '">' + esc(text) + '</span>'; }
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.timer); toast.timer = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function setStatus(kind, msg) {
+    var el = document.getElementById('status');
+    var cls = {ok: 'ok', fallback: 'warn', failed: 'bad'}[kind] || 'warn';
+    var head = {ok: '데이터 정상', fallback: '내장 샘플 표시 중', failed: '렌더 실패'}[kind];
+    el.className = 'banner ' + cls;
+    el.innerHTML = '<b>' + esc(head) + '</b><span>' + esc(msg) + '</span>';
+    el.hidden = false;
+  }
+  // 금지어 검사: NFC + 소문자 + 공백·기호 제거 후 부분 문자열(scripts/guards.py check_banned 와 같은 규칙)
+  function norm(s) { return String(s || '').normalize('NFC').toLowerCase().replace(/[^0-9a-z가-힣]/g, ''); }
+  function bannedHits(text, words) {
+    var n = norm(text);
+    return (words || []).filter(function (w) { var nw = norm(w); return nw && n.indexOf(nw) >= 0; });
+  }
+  function eqById(id) { return (S.data.equipment || []).filter(function (e) { return e.id === id; })[0]; }
+  function included(sec) { return sec.items.filter(function (id) { return S.excluded.indexOf(id) < 0; }); }
+
+  function renderPreview() {
+    var d = S.draft;
+    var html = '<div class="hero"><div><span class="pill">' + esc(d.pill) + '</span>' +
+      '<h3 id="pv-title">' + esc(d.title) + '</h3><p class="lead">' + esc(d.subtitle) + '</p>' +
+      '<a class="btn primary" href="dashboard.html">' + esc(d.cta) + '<span class="arrow" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></div></div>';
+    S.sections.forEach(function (sec) {
+      var ids = included(sec);
+      html += '<div class="sec"><h4>' + esc(sec.title) + '</h4><p class="why">' + esc(sec.why) + '</p>';
+      if (!ids.length) { html += '<div class="empty">이 섹션에 남은 설비가 없습니다. 오른쪽에서 설비를 복원하거나 섹션을 비워 둔 채 발행합니다.</div></div>'; return; }
+      html += '<div class="grid">' + ids.map(function (id) {
+        var e = eqById(id) || {id: id, name: '설비 정보 없음', step: '-', state: 'OFF', util: 0, note: ''};
+        var st = EQ_STATE[e.state] || EQ_STATE.OFF;
+        return '<div class="card item"><div class="media ' + (st[0] === 'ok' ? '' : st[0]) + '"><span>' + esc(e.step) + '</span><span class="tl">' + badge(st[0], st[1]) + '</span></div>' +
+          '<div class="title">' + esc(e.name) + '</div><div class="sub"><span class="id">' + esc(e.id) + '</span> 가동률 ' + esc(e.util) + '%</div>' +
+          (e.note ? '<div class="meta">' + esc(e.note) + '</div>' : '') + '</div>';
+      }).join('') + '</div></div>';
+    });
+    document.getElementById('preview').innerHTML = html;
+  }
+  function renderExclude() {
+    var all = [];
+    S.sections.forEach(function (sec) { sec.items.forEach(function (id) { if (all.indexOf(id) < 0) all.push(id); }); });
+    document.getElementById('ex-help').textContent = '공지에서 뺄 설비를 고른다. 최대 ' + S.data.console.max_excluded + '대. 제외 ' + S.excluded.length + '대.';
+    document.getElementById('ex-chips').innerHTML = S.excluded.map(function (id) {
+      return '<span class="chip bad">' + esc(id) + '<button class="x" type="button" data-restore="' + esc(id) + '" aria-label="' + esc(id) + ' 복원">✕</button></span>';
+    }).join('') || '<span class="meta">제외한 설비 없음</span>';
+    document.getElementById('inc-list').innerHTML = all.filter(function (id) { return S.excluded.indexOf(id) < 0; }).map(function (id) {
+      var e = eqById(id) || {id: id, name: '-', state: 'OFF'};
+      var st = EQ_STATE[e.state] || EQ_STATE.OFF;
+      return '<div class="row-item"><span><span class="id">' + esc(id) + '</span> ' + esc(e.name) + ' ' + badge(st[0], st[1]) + '</span>' +
+        '<button class="btn sm" type="button" data-exclude="' + esc(id) + '">제외</button></div>';
+    }).join('');
+  }
+  function renderOrder() {
+    document.getElementById('order').innerHTML = S.sections.map(function (sec, i) {
+      return '<div class="row-item"><span>' + (i + 1) + '. ' + esc(sec.title) + ' <span class="meta">' + included(sec).length + '대</span></span>' +
+        '<span class="btn-row"><button class="btn sm icon" type="button" data-move="' + i + ':-1" aria-label="' + esc(sec.title) + ' 위로"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button class="btn sm icon" type="button" data-move="' + i + ':1" aria-label="' + esc(sec.title) + ' 아래로"' + (i === S.sections.length - 1 ? ' disabled' : '') + '>↓</button></span></div>';
+    }).join('');
+  }
+  function renderEvidence() {
+    document.getElementById('evidence').innerHTML = (S.data.console.evidence || []).map(function (ev) {
+      return '<div class="card flat" style="padding: 10px 12px"><div><b>' + esc(ev.fact) + '</b></div><div class="meta">출처 <span class="id">' + esc(ev.source) + '</span></div><div class="meta">다음 행동: ' + esc(ev.next) + '</div></div>';
+    }).join('') || '<div class="empty">근거가 없습니다. 데이터에서 사실을 뽑아 채운다.</div>';
+  }
+  function violations() {
+    var v = [], c = S.data.console;
+    var hits = bannedHits(S.draft.title + ' ' + S.draft.subtitle, c.banned);
+    if (hits.length) v.push('금지어 포함: ' + hits.join(', ') + ' (문구를 고친다)');
+    if (S.excluded.length > c.max_excluded) v.push('제외 설비 ' + S.excluded.length + '대 > 한도 ' + c.max_excluded + '대 (일부를 복원한다)');
+    if (!S.draft.title.trim()) v.push('제목이 비어 있다');
+    var down = (S.data.equipment || []).filter(function (e) { return e.state === 'DOWN'; }).map(function (e) { return e.id; });
+    var shown = [];
+    S.sections.forEach(function (sec) { included(sec).forEach(function (id) { shown.push(id); }); });
+    down.forEach(function (id) { if (shown.indexOf(id) < 0) v.push('DOWN 설비 ' + id + ' 가 공지에 없다 (고장 설비는 뺄 수 없다)'); });
+    return v;
+  }
+  function renderPublish() {
+    var v = violations();
+    var box = document.getElementById('violations');
+    var btn = document.getElementById('btn-publish');
+    if (v.length) {
+      box.innerHTML = '<div><b>발행 차단 ' + v.length + '건</b><ul class="vio">' + v.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+      box.hidden = false; btn.disabled = true;
+    } else { box.hidden = true; btn.disabled = false; }
+    var n = 0; S.sections.forEach(function (sec) { n += included(sec).length; });
+    document.getElementById('pub-summary').textContent = '섹션 ' + S.sections.length + '개, 설비 ' + n + '대, 제외 ' + S.excluded.length + '대' + (S.published ? ', 발행됨 ' + S.published : '');
+    var chip = document.getElementById('pub-chip');
+    chip.className = 'badge ' + (S.published ? 'ok' : v.length ? 'bad' : 'warn');
+    chip.textContent = S.published ? '발행됨' : v.length ? '차단' : '초안';
+  }
+  function renderAll() { renderPreview(); renderExclude(); renderOrder(); renderEvidence(); renderPublish(); }
+
+  function reset() {
+    var c = S.data.console;
+    S.draft = JSON.parse(JSON.stringify(c.draft));
+    S.sections = JSON.parse(JSON.stringify(c.sections));
+    S.excluded = []; S.published = false;
+    document.getElementById('f-title').value = S.draft.title;
+    document.getElementById('f-sub').value = S.draft.subtitle;
+    renderAll();
+  }
+  function load(cb) {
+    var i = 0;
+    if (typeof fetch !== 'function') { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+    (function next() {
+      if (i >= DATA_URLS.length) { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
+      var u = DATA_URLS[i++];
+      fetch(u, {cache: 'no-store'})
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (d) { cb(d, 'ok', u); })
+        .catch(function () { next(); });
+    })();
+  }
+
+  document.getElementById('f-title').addEventListener('input', function (e) { S.draft.title = e.target.value; S.published = false; renderPreview(); renderPublish(); });
+  document.getElementById('f-sub').addEventListener('input', function (e) { S.draft.subtitle = e.target.value; S.published = false; renderPreview(); renderPublish(); });
+  document.body.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    if (b.hasAttribute('data-exclude')) { S.excluded.push(b.getAttribute('data-exclude')); S.published = false; renderAll(); toast(b.getAttribute('data-exclude') + ' 제외'); }
+    else if (b.hasAttribute('data-restore')) { S.excluded = S.excluded.filter(function (x) { return x !== b.getAttribute('data-restore'); }); S.published = false; renderAll(); toast(b.getAttribute('data-restore') + ' 복원'); }
+    else if (b.hasAttribute('data-move')) {
+      var p = b.getAttribute('data-move').split(':'), i = Number(p[0]), j = i + Number(p[1]);
+      if (j < 0 || j >= S.sections.length) return;
+      var tmp = S.sections[i]; S.sections[i] = S.sections[j]; S.sections[j] = tmp; S.published = false; renderAll();
+    }
+    else if (b.id === 'btn-publish') {
+      if (violations().length) return;
+      b.disabled = true; b.textContent = '발행 중';
+      setTimeout(function () {
+        S.published = hhmm(new Date().toISOString().replace(/\.\d+Z$/, 'Z')) + ' UTC';
+        b.textContent = '발행'; renderPublish(); toast('발행 완료');
+      }, 400);
+    }
+    else if (b.id === 'btn-reset') { reset(); toast('초안으로 되돌림'); }
+  });
+  load(function (d, status, src) {
+    try {
+      S.data = d; reset();
+      setStatus(status, status === 'ok' ? src + ' 로드. 설비 ' + (d.equipment || []).length + '대, 섹션 ' + S.sections.length + '개.' : 'data.json 을 읽지 못해 내장 샘플을 보여준다.');
+    } catch (e) { setStatus('failed', '렌더 중 오류: ' + e.message); }
+  });
+})();
+</script>
+</body>
+</html>

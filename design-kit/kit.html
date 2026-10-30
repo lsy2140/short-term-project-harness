@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>디자인 키트 스타일가이드</title>
+<!-- kit.html — 모든 토큰·컴포넌트를 한 페이지에서 보는 살아있는 스타일가이드.
+     시험 시작 직후 `python3 design-kit/serve.py` 로 띄워 이 환경에서 렌더되는지 2분 안에 확인한다.
+     이 파일의 <style> 은 데모 배치용이며 raw hex 가 없다(ui_check.py 가 검사). -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .demo { padding: var(--s-4); border: 1px dashed var(--line-strong); border-radius: var(--r-lg); background: var(--bezel-bg); display: grid; gap: var(--s-4); }
+  .demo .topbar { position: static; padding: 0; }
+  .demo .app { min-height: auto; padding-bottom: 0; }
+  .demo .tabbar { position: static; }
+  .swatches { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .sw { border-radius: var(--r-md); box-shadow: var(--ring); overflow: hidden; background: var(--panel); font-size: 11px; }
+  .sw i { display: block; height: 44px; }
+  .sw span { display: block; padding: 6px 8px; font-family: var(--mono); color: var(--ink-2); }
+  .radii { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: flex-end; }
+  .radii div { width: 72px; height: 56px; background: var(--brand-soft); border: 2px solid var(--brand); display: grid; place-items: center; font-size: 11px; font-family: var(--mono); }
+  .spaces { display: flex; gap: var(--s-2); align-items: flex-end; }
+  .spaces i { display: block; background: var(--brand); width: 14px; }
+  .type-row { display: grid; grid-template-columns: 90px 1fr; gap: var(--s-3); align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .type-row code { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .t-h1 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .t-h2 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+  .t-h3 { font-size: 16px; font-weight: 700; }
+  .phone { width: 390px; max-width: 100%; margin: 0 auto; border-radius: var(--r-xl); box-shadow: var(--ring), var(--shadow-2); overflow: hidden; background: var(--paper); }
+  .phone .app main { padding: var(--s-3); }
+  .toc { display: flex; gap: 6px; flex-wrap: wrap; }
+  .toc a { font-size: 12px; padding: 4px 10px; border-radius: var(--r-pill); background: var(--panel); box-shadow: var(--ring); text-decoration: none; color: var(--ink-2); }
+  .brand-switch { display: flex; gap: var(--s-2); align-items: center; flex-wrap: wrap; }
+  .brand-switch select { min-height: 36px; border-radius: var(--r-md); border: 1px solid var(--line-strong); padding: 0 10px; background: var(--panel); }
+</style>
+</head>
+<body>
+<header class="topbar full">
+  <div class="bar">
+    <div class="ident">
+      <div class="logo sq" aria-hidden="true">DK</div>
+      <div class="brand-text"><b>디자인 키트</b><small>tokens, base, components</small></div>
+    </div>
+    <div class="actions">
+      <a class="btn sm" href="templates/dashboard.html">대시보드</a>
+      <a class="btn sm" href="templates/console.html">콘솔</a>
+      <a class="btn sm" href="templates/landing.html">랜딩</a>
+      <a class="btn sm" href="templates/mobile.html">모바일</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <h1>디자인 키트 스타일가이드</h1>
+  <p class="lead">외부 요청 0, 순수 CSS 3파일. 페이지는 토큰(var)만 쓰고 새 색·새 반경·외부 URL 을 만들지 않는다. 이 페이지가 렌더되면 키트는 그 환경에서 동작한다.</p>
+  <nav class="toc" aria-label="목차">
+    <a href="#k-tokens">토큰</a><a href="#k-type">타이포</a><a href="#k-layout">레이아웃</a><a href="#k-card">카드·베젤</a><a href="#k-badge">배지</a><a href="#k-btn">버튼</a><a href="#k-table">표</a><a href="#k-state">상태 블록</a><a href="#k-topbar">헤더</a><a href="#k-kpi">KPI·스파크라인</a><a href="#k-eq">설비 보드</a><a href="#k-alarm">알람</a><a href="#k-item">항목 카드·칩</a><a href="#k-form">폼</a><a href="#k-mobile">모바일</a><a href="#k-use">사용 절차</a>
+  </nav>
+
+  <section class="section" id="k-tokens">
+    <h2>토큰</h2>
+    <p class="why">중립 7, 브랜드 4, 의미색 5쌍, 반경 5단, 그림자 2, 링, 간격 8단. 브랜드는 tokens.css 의 브랜드 블록 한 곳만 바꾼다.</p>
+    <div class="brand-switch">
+      <label for="brand-sel" class="meta">브랜드 미리보기</label>
+      <select id="brand-sel">
+        <option value="green">기본(녹)</option>
+        <option value="blue">파랑(Stripe 계열)</option>
+        <option value="slate">무채(Linear 계열)</option>
+      </select>
+      <span class="meta">실제 전환은 tokens.css 를 고친다. 흰 글자 대비 4.5:1 이상인 톤만.</span>
+    </div>
+    <h3 style="margin-top: var(--s-4)">색</h3>
+    <div class="swatches" id="swatches"></div>
+    <h3 style="margin-top: var(--s-4)">반경, 그림자, 간격</h3>
+    <div class="radii">
+      <div style="border-radius: var(--r-sm)">r-sm 8</div>
+      <div style="border-radius: var(--r-md)">r-md 12</div>
+      <div style="border-radius: var(--r-lg)">r-lg 18</div>
+      <div style="border-radius: var(--r-xl)">r-xl 28</div>
+      <div style="border-radius: var(--r-pill)">pill</div>
+      <div style="box-shadow: var(--ring), var(--shadow-1); border: 0; background: var(--panel)">shadow-1</div>
+      <div style="box-shadow: var(--ring), var(--shadow-2); border: 0; background: var(--panel)">shadow-2</div>
+    </div>
+    <div class="spaces" style="margin-top: var(--s-3)" aria-label="간격 8단">
+      <i style="height: var(--s-1)"></i><i style="height: var(--s-2)"></i><i style="height: var(--s-3)"></i><i style="height: var(--s-4)"></i><i style="height: var(--s-5)"></i><i style="height: var(--s-6)"></i><i style="height: var(--s-7)"></i><i style="height: var(--s-8)"></i>
+      <span class="meta">4, 8, 12, 16, 24, 32, 48, 64 px</span>
+    </div>
+  </section>
+
+  <section class="section" id="k-type">
+    <h2>타이포 5단</h2>
+    <p class="why">h1 28~40/800 → h2 24/800(세로 바) → h3 16/700 → 본문 14 → 메타 12 → 배지 11. 시스템 폰트, keep-all, 숫자는 tabular-nums.</p>
+    <div class="type-row"><code>h1 (1개)</code><span class="t-h1">수율 94.2%</span></div>
+    <div class="type-row"><code>h2 + 바</code><span class="t-h2">설비 상태 보드</span></div>
+    <div class="type-row"><code>h3</code><span class="t-h3">노광기 1호</span></div>
+    <div class="type-row"><code>본문 14</code><span>로트 25매가 ETCH 공정에서 대기 중이다. 긴 한글 문장은 어절 단위로 줄바꿈한다.</span></div>
+    <div class="type-row"><code>.meta 12</code><span class="meta">기준 09:00 주간조</span></div>
+    <div class="type-row"><code>.num .id</code><span><span class="num">1,284</span> lot / <span class="id">LOT-24A113</span></span></div>
+    <div class="type-row"><code>.eyebrow</code><span class="eyebrow">히어로 1곳에만</span></div>
+  </section>
+
+  <section class="section" id="k-layout">
+    <h2>레이아웃</h2>
+    <p class="why">.container 1120, .section 64px 간격, .grid auto-fill 200, .rail 가로 스냅, .split 1.4:1, .stack. 미디어쿼리는 1024/640 두 개.</p>
+    <h3>.grid</h3>
+    <div class="grid"><div class="card">1</div><div class="card">2</div><div class="card">3</div><div class="card">4</div><div class="card">5</div></div>
+    <h3 style="margin-top: var(--s-4)">.rail</h3>
+    <div class="rail"><div class="card">A</div><div class="card">B</div><div class="card">C</div><div class="card">D</div><div class="card">E</div><div class="card">F</div><div class="card">G</div><div class="card">H</div></div>
+    <h3 style="margin-top: var(--s-4)">.split (좌 1.4 : 우 1, 1024px 이하 1열)</h3>
+    <div class="split"><div class="card">미리보기(좌)</div><div class="stack"><div class="card">컨트롤 1</div><div class="card">컨트롤 2</div></div></div>
+  </section>
+
+  <section class="section" id="k-card">
+    <h2>카드와 더블베젤</h2>
+    <p class="why">선 대신 10% 알파 링 + 잉크색 틴트 그림자. 베젤은 히어로·미리보기·강조 3곳에만. 외피 28 / 내피 calc(28-8).</p>
+    <div class="grid wide">
+      <div class="card"><h3>.card</h3><p class="meta">기본 카드. 링 + shadow-1.</p></div>
+      <div class="card lift"><h3>.card.lift</h3><p class="meta">hover 시 -3px 리프트 + shadow-2.</p></div>
+      <div class="card flat"><h3>.card.flat</h3><p class="meta">링만. 중첩 카드용.</p></div>
+    </div>
+    <div class="bezel" style="margin-top: var(--s-4)"><div class="core hero"><div><span class="pill">FAB-1 B라인 주간조</span><div class="t-h1">베젤 안의 히어로</div><p class="lead">메시 그라디언트 + pill + 큰 헤드라인 + 검정 pill CTA.</p><a class="btn primary" href="#k-btn">현황판 열기<span class="arrow" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></div><div class="kpi hide-md"><div class="card"><div class="label">수율</div><div class="value num">94.2<small>%</small></div></div><div class="card"><div class="label">WIP</div><div class="value num">1,284<small>lot</small></div></div></div></div></div>
+  </section>
+
+  <section class="section" id="k-badge">
+    <h2>배지 5종 + brand</h2>
+    <p class="why">매핑 고정: ok=가동·정상·live / warn=PM·주의·fallback / bad=고장·알람·차단 / info=대기·정보 / off=비가동·없음. 글자와 점을 함께.</p>
+    <div class="row">
+      <span class="badge ok">가동</span><span class="badge warn">PM</span><span class="badge bad">고장</span><span class="badge info">대기</span><span class="badge off">비가동</span><span class="badge brand">HBM3E</span><span class="badge ok live">실시간</span><span class="badge plain">plain</span>
+    </div>
+  </section>
+
+  <section class="section" id="k-btn">
+    <h2>버튼 3종</h2>
+    <p class="why">기본 pill / primary 검정(버튼-인-버튼) / brand. 진행 중엔 라벨을 '발행 중' 으로 바꾸고 disabled. 완료 토스트는 같은 동사('발행 완료').</p>
+    <div class="btn-row">
+      <button class="btn" type="button">기본</button>
+      <button class="btn primary" type="button">발행<span class="arrow" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
+      <button class="btn brand" type="button">저장</button>
+      <button class="btn danger" type="button">삭제</button>
+      <button class="btn ghost" type="button">취소</button>
+      <button class="btn sm" type="button">작게</button>
+      <button class="btn brand" type="button" disabled>발행 중</button>
+      <button class="btn icon" type="button" aria-label="위로 이동">↑</button>
+    </div>
+    <button class="btn wide" type="button" style="margin-top: var(--s-3)" id="btn-toast">토스트 보기 (.btn.wide)</button>
+  </section>
+
+  <section class="section" id="k-table">
+    <h2>표</h2>
+    <p class="why">스크롤 컨테이너 + sticky 헤더 + 행 hover. 숫자 .num 우정렬, 식별자 .id 고정폭, 상태는 배지, 홀드 행은 .row-bad(bad-bg).</p>
+    <div class="table-wrap">
+      <table>
+        <caption>진행 로트 (예시 3건)</caption>
+        <thead><tr><th>LOT_ID</th><th>제품</th><th>공정</th><th>설비</th><th class="num">수량(매)</th><th>시작</th><th>상태</th><th>홀드 사유</th></tr></thead>
+        <tbody>
+          <tr><td class="id">LOT-24A113</td><td>DDR5 16Gb</td><td>ETCH</td><td class="id">ETC-01</td><td class="num">25</td><td class="num">06:10</td><td><span class="badge ok">진행</span></td><td></td></tr>
+          <tr class="row-bad"><td class="id">LOT-24A114</td><td>DDR5 16Gb</td><td>ETCH</td><td class="id">ETC-03</td><td class="num">25</td><td class="num">05:40</td><td><span class="badge bad">홀드</span></td><td>설비 DOWN(ETC-03)</td></tr>
+          <tr><td class="id">LOT-24A099</td><td>HBM3E 코어</td><td>CVD</td><td class="id">DEP-01</td><td class="num">25</td><td class="num">04:30</td><td><span class="badge off">완료</span></td><td></td></tr>
+        </tbody>
+        <tfoot><tr><td colspan="4">합계</td><td class="num">75</td><td colspan="3">3로트</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="k-state">
+    <h2>상태 블록</h2>
+    <p class="why">배너 문구는 '무엇이 실패했고 → 지금 무엇을 보여주며 → 기준 시점'. 빈 상태는 다음 행동을 제안. 스켈레톤은 로딩 중에만.</p>
+    <div class="stack tight">
+      <div class="banner ok"><b>데이터 정상</b><span>data.json 로드, 기준 09:00</span></div>
+      <div class="banner warn"><b>내장 샘플 표시 중</b><span>data.json 을 읽지 못해 내장 샘플을 보여준다. 서버 경로와 JSON 형식을 확인한다.</span></div>
+      <div class="banner bad"><b>발행 차단 2건</b><span>금지어 포함: 무결점 / DOWN 설비 ETC-03 이 공지에 없다</span></div>
+      <div class="banner"><b>안내</b><span>info 톤. 사용자 행동이 필요 없는 정보.</span></div>
+    </div>
+    <div class="grid wide" style="margin-top: var(--s-4)">
+      <div class="empty"><b>아직 올라온 공지가 없습니다</b>콘솔에서 공지를 만들면 여기에 나타납니다.<div class="cta"><a class="btn" href="templates/console.html">공지 만들기</a></div></div>
+      <div class="card"><div class="skeleton block"></div><div class="skeleton line" style="margin-top: 10px"></div><div class="skeleton line" style="margin-top: 6px; width: 60%"></div></div>
+    </div>
+  </section>
+
+  <section class="section" id="k-topbar">
+    <h2>헤더</h2>
+    <p class="why">작업자·고객 화면은 떠 있는 글래스 pill, 콘솔·대시보드는 .full 전폭 바.</p>
+    <div class="demo">
+      <header class="topbar"><div class="bar"><div class="ident"><div class="logo" aria-hidden="true">B</div><div class="brand-text"><b>B라인 현황 포털</b><small>M14 FAB-1</small></div></div><div class="actions"><span class="badge ok live">실시간</span><a class="btn sm" href="#k-topbar">현황판</a></div></div></header>
+      <header class="topbar full"><div class="bar"><div class="ident"><div class="logo sq" aria-hidden="true">M14</div><div class="brand-text"><b>인수인계 공지 콘솔</b><small>생산기술 2팀</small></div></div><div class="actions"><span class="badge warn">초안</span><button class="btn sm" type="button">발행</button></div></div></header>
+    </div>
+  </section>
+
+  <section class="section" id="k-kpi">
+    <h2>KPI와 스파크라인</h2>
+    <p class="why">큰 숫자 + 단위 + 전일 대비 delta(개선 녹/악화 적) + 인라인 SVG 7점. 점선은 UCL/LCL, 적색 원은 관리 이탈.</p>
+    <div class="kpi">
+      <div class="card"><div class="label">수율</div><div class="value num">94.2<small>%</small></div><div class="delta up">전일 대비 +0.6%p</div>
+        <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" role="img" aria-label="수율 7일 추세"><polyline class="line" points="4,24 23,19 42,26 61,13 80,9 99,12 116,6"/></svg></div>
+      <div class="card"><div class="label">가동률(OEE)</div><div class="value num">87.5<small>%</small></div><div class="delta down">전일 대비 -1.2%p</div>
+        <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" role="img" aria-label="가동률 7일 추세"><polyline class="line" points="4,6 23,10 42,8 61,14 80,10 99,13 116,26"/></svg></div>
+      <div class="card"><div class="label">WIP</div><div class="value num">1,284<small>lot</small></div><div class="delta">전일 대비 +36lot</div>
+        <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" role="img" aria-label="WIP 7일 추세"><polyline class="line" points="4,26 23,22 42,16 61,19 80,12 99,16 116,6"/></svg></div>
+      <div class="card"><div class="label">게이트 CD</div><div class="value num">50.3<small>nm</small></div><div class="delta">UCL 52 / LCL 48</div>
+        <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" role="img" aria-label="CD 추세와 관리 한계"><line class="limit" x1="0" x2="120" y1="5" y2="5"/><line class="limit" x1="0" x2="120" y1="27" y2="27"/><line class="target" x1="0" x2="120" y1="16" y2="16"/><polyline class="line" points="4,15 20,18 36,14 52,10 68,17 84,15 100,3 116,13"/><circle class="ooc" cx="100" cy="3" r="3"/></svg></div>
+    </div>
+  </section>
+
+  <section class="section" id="k-eq">
+    <h2>설비 상태 보드와 진행 바(.progress)</h2>
+    <p class="why">SEMI E10 축약: RUN 가동(ok) / IDLE 대기(info) / PM 예방보전(warn) / DOWN 고장(bad) / OFF 비가동(off). 좌측 보더 + 상태 글자.</p>
+    <div class="legend" style="margin-bottom: var(--s-3)"><span class="badge ok">가동 7</span><span class="badge info">대기 2</span><span class="badge warn">PM 1</span><span class="badge bad">고장 1</span><span class="badge off">비가동 1</span></div>
+    <div class="eq-board">
+      <div class="eq" data-state="RUN"><div class="row between"><span class="id">PHO-01</span><span class="st">가동</span></div><div class="name">노광기 1호</div><div class="progress"><i style="width: 92%"></i></div></div>
+      <div class="eq" data-state="IDLE"><div class="row between"><span class="id">ETC-01</span><span class="st">대기</span></div><div class="name">식각기 1호</div><div class="progress"><i style="width: 41%"></i></div></div>
+      <div class="eq" data-state="PM"><div class="row between"><span class="id">DEP-02</span><span class="st">PM</span></div><div class="name">증착기 2호</div><div class="progress warn"><i style="width: 0%"></i></div><div class="meta">12:00 종료 예정</div></div>
+      <div class="eq" data-state="DOWN"><div class="row between"><span class="id">ETC-03</span><span class="st">고장</span></div><div class="name">식각기 3호</div><div class="progress bad"><i style="width: 0%"></i></div><div class="meta">챔버 압력 상한 초과</div></div>
+      <div class="eq" data-state="OFF"><div class="row between"><span class="id">MET-02</span><span class="st">비가동</span></div><div class="name">계측기 2호</div><div class="progress"><i style="width: 0%"></i></div></div>
+    </div>
+  </section>
+
+  <section class="section" id="k-alarm">
+    <h2>알람 패널</h2>
+    <p class="why">심각도 Critical/Major/Minor → bad/warn/info. 최신순. 확인 버튼 → 확인자·시각.</p>
+    <div class="alarm-list">
+      <div class="alarm"><span class="badge bad">Critical</span><div><div class="msg"><span class="id">ETC-03</span> 챔버 압력 상한 초과 — 설비 DOWN 전환</div><div class="when">ALM-5531 05:52</div></div><button class="btn sm" type="button">확인</button></div>
+      <div class="alarm"><span class="badge warn">Major</span><div><div class="msg"><span class="id">PHO-02</span> 오버레이 편차 경고(0.8nm, 한계 1.0nm)</div><div class="when">ALM-5528 04:15</div></div><button class="btn sm" type="button">확인</button></div>
+      <div class="alarm acked"><span class="badge info">Minor</span><div><div class="msg"><span class="id">CLN-01</span> 약액 잔량 20% 미만</div><div class="when">ALM-5524 02:30, 확인 야간조 김OO 02:41</div></div><span class="badge off plain">확인됨</span></div>
+    </div>
+  </section>
+
+  <section class="section" id="k-item">
+    <h2>항목 카드, 칩, 순서 리스트</h2>
+    <p class="why">이미지가 없을 때 미디어 자리에 상태색 블록 + 공정 약어. 제목 2줄 클램프, pill 버튼 2개. 칩의 ✕ 는 버튼.</p>
+    <div class="grid">
+      <div class="card item lift"><div class="media bad"><span>ETCH</span><span class="tl badge bad">고장</span></div><div class="tags"><span class="badge brand">ETCH</span></div><div class="title">식각기 3호</div><div class="sub"><span class="id">ETC-03</span> 챔버 압력 상한 초과</div><div class="actions"><button class="btn" type="button">상세</button><button class="btn" type="button">담당자 호출</button></div></div>
+      <div class="card item lift"><div class="media warn"><span>CVD</span><span class="tl badge warn">PM</span></div><div class="tags"><span class="badge brand">CVD</span></div><div class="title">증착기 2호</div><div class="sub"><span class="id">DEP-02</span> 정기 PM 12:00 종료 예정</div><div class="actions"><button class="btn" type="button">상세</button><button class="btn" type="button">담당자 호출</button></div></div>
+      <div class="card item lift"><div class="media"><span>PHOTO</span><span class="tl badge ok">가동</span><span class="tr badge plain">92%</span></div><div class="tags"><span class="badge brand">PHOTO</span></div><div class="title">노광기 1호 — 제목이 길면 두 줄까지 보이고 그 다음은 잘린다</div><div class="sub"><span class="id">PHO-01</span></div><div class="actions"><button class="btn" type="button">상세</button><button class="btn" type="button">담당자 호출</button></div></div>
+    </div>
+    <div class="chips" style="margin-top: var(--s-4)"><span class="chip">DEP-01<button class="x" type="button" aria-label="DEP-01 제거">✕</button></span><span class="chip bad">ETC-03<button class="x" type="button" aria-label="ETC-03 복원">✕</button></span></div>
+    <div class="order-list" style="margin-top: var(--s-3)">
+      <div class="row-item"><span>1. 지금 멈춘 설비 <span class="meta">1대</span></span><span class="btn-row"><button class="btn sm icon" type="button" aria-label="위로" disabled>↑</button><button class="btn sm icon" type="button" aria-label="아래로">↓</button></span></div>
+      <div class="row-item"><span>2. PM 진행 중 <span class="meta">2대</span></span><span class="btn-row"><button class="btn sm icon" type="button" aria-label="위로">↑</button><button class="btn sm icon" type="button" aria-label="아래로" disabled>↓</button></span></div>
+    </div>
+  </section>
+
+  <section class="section" id="k-form">
+    <h2>폼</h2>
+    <p class="why">라벨은 항상 위, 입력 44px, 도움말·오류는 입력 아래. 체크박스는 48px 터치 타깃 행 전체가 라벨.</p>
+    <form class="form" onsubmit="return false">
+      <div class="grid wide">
+        <div class="field"><label for="k-eqp">설비</label><select id="k-eqp"><option>ETC-03</option><option>DEP-02</option></select><span class="help">점검할 설비 ID</span></div>
+        <div class="field"><label for="k-qty">수량(매)</label><input id="k-qty" type="number" value="25" min="0" max="25"><span class="error">25매를 넘을 수 없다 (.error 예시)</span></div>
+      </div>
+      <div class="field"><label for="k-note">비고</label><textarea id="k-note" rows="2">압력 2.3 Torr(기준 2.0)</textarea></div>
+      <div class="field"><span class="label" id="k-chk">점검 항목</span>
+        <div class="stack tight" role="group" aria-labelledby="k-chk">
+          <label class="check"><input type="checkbox" checked><span>챔버 압력 정상 범위(≤ 2.0 Torr)</span></label>
+          <label class="check"><input type="checkbox"><span>인터락 해제 이력 없음</span></label>
+        </div>
+      </div>
+      <div class="steps" aria-label="진행 단계"><b class="done">1</b><i></i><b class="on">2</b><i></i><b>3</b></div>
+      <div class="btn-row"><button class="btn" type="button">이전</button><button class="btn brand" type="button">다음</button></div>
+    </form>
+  </section>
+
+  <section class="section" id="k-mobile">
+    <h2>모바일 앱 셸</h2>
+    <p class="why">.app 480 단일 컬럼 + .appbar + .list + .tabbar(safe-area). 폴드 안에 핵심 숫자 1개 + 리스트 첫 2행.</p>
+    <div class="demo">
+      <div class="phone">
+        <div class="app">
+          <header class="appbar"><span style="font-size: 18px; font-weight: 800">설비 점검</span><span class="badge ok live">동기화됨</span></header>
+          <main>
+            <div class="kpi"><div class="card"><div class="label">오늘 할 일</div><div class="value num">4</div></div><div class="card"><div class="label">긴급</div><div class="value num" style="color: var(--bad)">1</div></div></div>
+            <div class="list">
+              <div class="card"><div class="avatar bad">ETC</div><div><div class="t">고장 원인 1차 점검</div><div class="s"><span class="id">ETC-03</span> 09:30 까지</div></div><span class="badge bad">긴급</span></div>
+              <div class="card"><div class="avatar warn">DEP</div><div><div class="t">PM 완료 확인 서명</div><div class="s"><span class="id">DEP-02</span> 12:00 까지</div></div><span class="badge warn">PM</span></div>
+            </div>
+          </main>
+          <nav class="tabbar" aria-label="주요 메뉴"><a href="#k-mobile" class="on"><span class="ico" aria-hidden="true">✓</span>점검</a><a href="#k-mobile"><span class="ico" aria-hidden="true">▦</span>설비</a><a href="#k-mobile"><span class="ico" aria-hidden="true">!</span>알람</a><a href="#k-mobile"><span class="ico" aria-hidden="true">●</span>내 정보</a></nav>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="k-use">
+    <h2>사용 절차</h2>
+    <p class="why">자세한 것은 DESIGN.md. 여기서는 순서만.</p>
+    <ol>
+      <li><span class="id">templates/</span> 에서 가장 가까운 템플릿을 과제 폴더로 복사하고 CSS 3파일도 복사한다.</li>
+      <li>페이지는 <span class="id">var(--토큰)</span> 만 쓴다. 새 hex·새 반경·외부 URL 금지.</li>
+      <li><span class="id">data.json</span> 자리에 과제 데이터(API 또는 파일)를 넣고 render() 의 data→DOM 매핑 표를 DECISIONS.md 에 적는다.</li>
+      <li><span class="id">python3 design-kit/ui_check.py http://localhost:PORT/</span> PASS → 미리보기에서 데스크톱·390px HUMAN_CHECK 4질문 → 커밋.</li>
+    </ol>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  // 토큰 스와치: tokens.css 의 색 토큰을 computed style 에서 읽어 그린다(값을 HTML 에 중복해 적지 않는다).
+  var NAMES = ['paper', 'panel', 'ink', 'ink-2', 'muted', 'line', 'line-strong', 'brand', 'brand-deep', 'brand-soft', 'ok', 'ok-bg', 'warn', 'warn-bg', 'bad', 'bad-bg', 'info', 'info-bg', 'off', 'off-bg'];
+  var root = document.documentElement;
+  function drawSwatches() {
+    var cs = getComputedStyle(root);
+    document.getElementById('swatches').innerHTML = NAMES.map(function (n) {
+      return '<div class="sw"><i style="background: var(--' + n + ')"></i><span>--' + n + ' ' + cs.getPropertyValue('--' + n).trim() + '</span></div>';
+    }).join('');
+  }
+  // 브랜드 미리보기 프리셋(여기 값은 데모용. 실제 전환은 tokens.css 브랜드 블록을 고친다)
+  var PRESETS = {
+    green: null,
+    blue: {brand: '#4f46e5', rgb: '79, 70, 229', deep: '#3730a3', soft: '#e0e7ff'},
+    slate: {brand: '#334155', rgb: '51, 65, 85', deep: '#1e293b', soft: '#e2e8f0'}
+  };
+  document.getElementById('brand-sel').addEventListener('change', function (e) {
+    var p = PRESETS[e.target.value];
+    ['--brand', '--brand-rgb', '--brand-deep', '--brand-soft'].forEach(function (k) { root.style.removeProperty(k); });
+    if (p) {
+      root.style.setProperty('--brand', p.brand); root.style.setProperty('--brand-rgb', p.rgb);
+      root.style.setProperty('--brand-deep', p.deep); root.style.setProperty('--brand-soft', p.soft);
+    }
+    drawSwatches();
+  });
+  document.getElementById('btn-toast').addEventListener('click', function () {
+    var t = document.getElementById('toast');
+    t.textContent = '발행 완료'; t.classList.add('show');
+    clearTimeout(window.__toastTimer); window.__toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  });
+  drawSwatches();
+})();
+</script>
+</body>
+</html>

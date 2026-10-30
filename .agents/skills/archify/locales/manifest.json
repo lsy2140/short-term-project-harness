@@ -1,0 +1,12 @@
+{
+  "catalogs": [
+    {
+      "locale": "en",
+      "file": "en.json"
+    },
+    {
+      "locale": "ko",
+      "file": "ko.json"
+    }
+  ]
+}
