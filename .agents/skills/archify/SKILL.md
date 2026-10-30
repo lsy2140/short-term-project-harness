@@ -9,7 +9,7 @@ metadata:
 
 > **이 키트에서**(이 인용 블록과 description 의 한국어 트리거는 키트가 추가한 변경 — `MODIFICATIONS.md`): 출력은 `docs/diagrams/<이름>.html`, 후보·영수증은 `.archify/`(gitignore). 아래 명령의 `bin/archify.mjs` 는 `.agents/skills/archify/bin/archify.mjs` 로 읽는다.
 > Node ≥18 필요 — 사전 체험 때 `node .agents/skills/archify/bin/archify.mjs doctor` 로 확인. 없거나 18 미만이면 이 스킬을 쓰지 않고 `scripts/flowmap.py` 만 쓴다.
-> 1장당 1~2턴 · 토큰은 채점 기록. 권장(강제 아님): 10~30분 dataflow 1장(담당자 확인) → 63분 첫 완주 후 `--repo-root .` architecture → 동결 때 갱신 → 서술형 준비에 sequence/lifecycle.
+> 1장당 1~2턴 · 토큰은 채점 기록. 권장(강제 아님): 10~30분 dataflow 1장(담당자 확인) → 63분 첫 완주 후 `--repo-root .` architecture → 동결 때 갱신 → 최종 구현 종합정리에 sequence/lifecycle.
 > 외부망 없음: `export ARCHIFY_UPDATE_CHECK_DISABLED=1` 로 갱신 확인을 끈다. 시스템 Chrome 이 없으면 `finalize` 의 browser-check 는 skipped(exit 2)지만 HTML 산출은 유효하다.
 
 # Archify
