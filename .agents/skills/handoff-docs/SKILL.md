@@ -12,7 +12,8 @@ description: 동결 구간(작업 종료 약 35분 전)에 제출 문서를 정�
 # [한 문장: 무엇을 만들었나]
 ## 무엇을 자동화했고 무엇을 하지 않았나
 ## 실행 방법        ← 실제로 실행해 본 명령만 (코드블록)
-## 현재 상태        ← 테스트 N개 PASS / preflight exit 0 / 출력 파일 경로
+## 현재 상태        ← 과제 테스트 N개 PASS(`python3 -m unittest`, 하네스 도구 테스트 제외) / preflight exit 0 / 출력 파일 경로
+## 폴더 안내        ← 과제 코드(run.py·패키지·app.py·tests/) / 작업 도구(하네스: AGENTS.md·scripts/·.agents/·design-kit/·docs/·decisions/·out/debug/)
 ## 결정과 이유      ← DECISIONS.md 1~3 요약
 ## 한계와 다음 단계  ← 틀릴 수 있는 입력, 시간이 있었다면
 ## 데모 순서(정상 1회 + 실패 1회)  ← 실제로 친 명령·입력·화면/파일에서 보이는 것 + `out/report/index.html`(보고서 세션이 만든 단계 보고서) 링크, `docs/diagrams/`(archify 구조도, 있으면) 링크
@@ -26,7 +27,7 @@ description: 동결 구간(작업 종료 약 35분 전)에 제출 문서를 정�
 - 미완성 표시 단어(할 일 마커·"아직 안 됨" 류), 템플릿 문구, 빈 표를 남기지 않는다. 비어 있으면 "해당 없음"과 이유를 쓴다.
 - 숫자는 실행 결과에서 가져온다(테스트 수, 행 수, 처리 시간).
 - 실행 방법에는 환경 변수(`PORT` 등)·예상 출력(첫 2줄)·흔한 실패 1개와 해결을 적는다.
-- README의 숫자(행 수·임계값·테스트 수)는 테스트가 읽는 값(tests/·코드 상수)과 같게 한다. 다르면 README가 틀린 것이다.
+- README의 숫자(행 수·임계값·테스트 수)는 테스트가 읽는 값(tests/·코드 상수)과 같게 한다. 다르면 README가 틀린 것이다. 테스트 수는 preflight 의 `tests` 줄(과제 테스트)이고 `harness-tests` 줄(하네스 도구 테스트)은 넣지 않는다.
 - 문서 작성 전 `grep -rn "결정:" src tests` 결과를 DECISIONS.md 1절(설계 결정)과 TASK.md 2절(가정)로 옮긴다. 주석에만 있는 결정은 심사자가 보지 못한다.
 - 문서 작성 후 `python3 scripts/preflight.py --require README.md PLAN.md <출력 파일>`로 미완성 표시 스캔을 통과시킨다.
 - 동결 전 사람에게 "보고서 세션에서 `$stage-report all` 을 돌려 달라"고 요청하고, `out/report/index.html` 이 최신인지 확인한다(이 세션에서 flowmap 을 직접 돌리지 않는다). `docs/diagrams/` 가 있으면 최신인지 본다.

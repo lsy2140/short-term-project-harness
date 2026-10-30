@@ -7,7 +7,7 @@
   python3 scripts/prompt.py 트레이스백     # 키워드(제목·키워드·구간) 검색: 1개면 본문, 여러 개면 후보 목록
   python3 scripts/prompt.py --all        # 전체 본문 (번호·제목 머리 포함)
   python3 scripts/prompt.py --file 경로  # 다른 md 파일을 읽는다 (기본: docs/prompt_examples.md)
-문서 쪽 형식(tests/test_prompt.py 가 고정):
+문서 쪽 형식(scripts/tests/test_prompt.py 가 고정):
   ## N. 제목 / - 구간: … / - 키워드: a, b / ```본문``` / - 막는 실수: … / - 출처: …
   번호 없는 `## 절` 은 예시로 세지 않는다. 본문은 예시 안의 첫 코드 블록이다.
 종료 코드: 0 성공(목록·후보 목록 포함) / 1 해당 없음·파일 없음 / 2 파싱 결과 0건(통과 아님)

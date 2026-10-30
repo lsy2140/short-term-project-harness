@@ -15,7 +15,7 @@ except Exception:  # noqa
     pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))  # scripts/tests → 작업 폴더
 SCRIPTS = os.path.join(ROOT, 'scripts')
 # 'scripts' 라는 이름은 다른 설치 패키지와 겹칠 수 있어(Anaconda 등) 폴더를 직접 경로에 넣고 모듈 이름으로 가져온다.
 if SCRIPTS not in sys.path:

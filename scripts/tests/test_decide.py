@@ -20,7 +20,7 @@ except Exception:  # noqa
     pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))  # scripts/tests → 작업 폴더
 SCRIPTS = os.path.join(ROOT, 'scripts')
 KIT = os.path.join(ROOT, 'design-kit')
 if SCRIPTS not in sys.path:
@@ -323,6 +323,18 @@ class TestServer(unittest.TestCase):
         self.assertEqual(st2, 404)
         st3, _, _ = _get(self.base + '/nothing')
         self.assertEqual(st3, 404)
+
+
+class TestKitRoutesBusinessRules(unittest.TestCase):
+    """테스트 표·계획 승인에 업무 규칙이 섞이면 pending 으로 떼어 낸다(리허설 2: 경계·자정을 표 승인으로 통과시킨 사고)."""
+
+    def test_agents_and_unit_test_starter_keep_business_rules_out_of_approvals(self):
+        agents = decide.read_text(os.path.join(ROOT, 'AGENTS.md'))
+        self.assertIn('승인 요청에 업무 규칙을 섞지 않는다', agents)
+        self.assertIn('사람의 표 승인은 업무 규칙 결정을 대신하지 않는다', agents)
+        starter = decide.read_text(os.path.join(ROOT, '.agents', 'skills', 'unit-test-starter', 'SKILL.md'))
+        self.assertIn('업무 규칙: D03(결정됨)·D07(대기)', starter)
+        self.assertIn('pending.md', starter)
 
 
 if __name__ == '__main__':

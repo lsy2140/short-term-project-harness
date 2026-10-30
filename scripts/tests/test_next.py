@@ -18,7 +18,7 @@ except Exception:  # noqa
     pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))  # scripts/tests → 작업 폴더
 SCRIPTS = os.path.join(ROOT, 'scripts')
 # 'scripts' 라는 이름은 다른 설치 패키지와 겹칠 수 있어 폴더를 직접 경로에 넣고 모듈 이름으로 가져온다.
 if SCRIPTS not in sys.path:
@@ -281,6 +281,16 @@ class TestPendingDecisions(_TmpRoot):
         self.assertIn('결정 대기 D07·D08', data['lines'][1])
         self.assertIn('담당자 확인 필요: D07', data['lines'][1])
         self.assertNotIn('기본값', data['lines'][1])
+
+    def test_stakeholder_items_remind_requirement_update(self):
+        self.write(os.path.join('decisions', 'pending.md'), self.PENDING)
+        data = nextmod.build(self.root, start='09:00', now='10:14', use_records=False)
+        self.assertIn('`요구사항 갱신:` 으로 전달', data['lines'][1])
+        tech_only = '## D08 반올림   (영향: 출력 | 담당자 확인: 불필요 — 기술 선택)\n- [ ] A. 둘째 자리 (추천)\n메모:\n'
+        self.write(os.path.join('decisions', 'pending.md'), tech_only)
+        data = nextmod.build(self.root, start='09:00', now='10:14', use_records=False)
+        self.assertIn('결정 대기 D08', data['lines'][1])
+        self.assertNotIn('요구사항 갱신', data['lines'][1])
 
     def test_no_pending_file_means_no_decision_line(self):
         data = nextmod.build(self.root, start='09:00', now='10:14', use_records=False)

@@ -17,7 +17,7 @@ except Exception:  # noqa
     pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.dirname(HERE))  # scripts/tests → 작업 폴더
 KIT = os.path.join(ROOT, 'design-kit')
 PAGES = ['kit.html', os.path.join('templates', 'dashboard.html'), os.path.join('templates', 'console.html'),
          os.path.join('templates', 'landing.html'), os.path.join('templates', 'mobile.html')]

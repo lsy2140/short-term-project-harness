@@ -11,10 +11,10 @@ Working rules, templates, skills, and verification scripts for short, time-boxed
 | `RUN.md` | Time-boxed run sheet and checklists |
 | `decisions/` | Pending decisions and answers |
 | `.agents/skills/` | Codex skills (15) |
-| `scripts/` | Preflight, contract check, next-step hints, decision form, stage reports (flowmap), and helpers |
+| `scripts/` | Preflight, contract check, next-step hints, decision form, stage reports (flowmap), code scaffold, docstring map, and helpers; their tests are in `scripts/tests/` |
 | `design-kit/` | CSS tokens, components, page templates, and a UI checker |
 | `docs/` | Prompt examples and guides |
-| `tests/` | Test template and tests for the scripts |
+| `tests/` | Test template for task code |
 
 ## Usage
 
@@ -30,10 +30,13 @@ Then start `codex` in the project folder. Delete skills you do not need to save 
 For stage reports, open a second `codex` session in the same folder and run `$stage-report 1-3`; it writes only to `out/report/`.
 
 ```bash
-python3 scripts/recon.py        # check the environment
-python3 scripts/next.py         # current phase and next steps
-python3 -m unittest             # run tests
-python3 scripts/preflight.py    # final checks (exit 0 = pass)
+python3 scripts/recon.py                        # check the environment
+python3 scripts/scaffold.py --stages clean      # thin run.py + one module per stage
+python3 scripts/next.py                         # current phase and next steps
+python3 -m unittest                             # task tests
+python3 -m unittest discover -s scripts/tests   # harness tool tests
+python3 scripts/docmap.py --check               # every function has a docstring with inputs and outputs
+python3 scripts/preflight.py                    # final checks (exit 0 = pass)
 ```
 
 ## License

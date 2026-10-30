@@ -7,10 +7,14 @@
   python3 scripts/preflight.py --freeze             # 110분 1차 동결: .tmp/freeze_1/ 복구본 + tests/ 해시 기록(1회)
   python3 scripts/preflight.py --check-freeze       # 1차 동결 이후 tests/ 변경 여부만
   python3 scripts/preflight.py --require out/result.csv README.md PLAN.md   # 필수 제출 파일 확인
-  python3 scripts/preflight.py --tests tests        # 테스트 폴더 지정(기본 tests)
+  python3 scripts/preflight.py --tests tests        # 과제 테스트 폴더 지정(기본 tests)
+  python3 scripts/preflight.py --skip-harness       # 하네스 도구 테스트(scripts/tests) 생략
 
 debug-dir: out/debug 가 없으면 PASS, 총 40파일 초과 또는 금지 패턴(*_before·*_protected_before*·chrome_profile·입력 복사본)이면
            WARN — python3 scripts/debug_dir.py --check 로 상세를 본다. .tmp/·out/debug 는 TODO·비밀키 스캔에서 제외한다.
+tests: 과제 테스트(tests/)만 센다 — README 의 테스트 수는 이 줄이다.
+harness-tests: 하네스 도구 테스트(scripts/tests). 실패해도 WARN 이고 README 테스트 수에 넣지 않는다.
+docstring: 과제 코드 함수의 설명문(입력·출력 줄)이 빠지면 WARN — python3 scripts/docmap.py --check 로 목록을 본다.
 
 exit 0  검사한 항목이 모두 PASS (정답 증명은 아님)
 exit 1  FAIL 있음
@@ -222,8 +226,35 @@ def check_debug_dir():
     rec('debug-dir', 'PASS', detail)
 
 
+def check_docstrings():
+    """과제 코드 함수 설명문(입력·출력 줄) 검사 — 빠지면 WARN(AGENTS.md 4절). 판정 로직은 scripts/docmap.py 하나에 둔다."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    try:
+        import docmap
+    except ImportError:
+        rec('docstring', 'SKIP', 'scripts/docmap.py 를 불러올 수 없음 — 같은 폴더에 있는지 확인')
+        return
+    data = docmap.build(ROOT)
+    if not data['files']:
+        rec('docstring', 'SKIP', '과제 코드 없음(하네스 폴더 제외)')
+        return
+    probs = docmap.problem_lines(data)
+    if probs:
+        rec('docstring', 'WARN', '%d건: %s → python3 scripts/docmap.py --check' % (len(probs), '; '.join(probs[:4])))
+    else:
+        rec('docstring', 'PASS', '함수 %d개 모두 입력·출력 줄 있음' % data['n_functions'])
+    if data['long_functions'] or data['long_files']:
+        rec('code-size', 'INFO', '긴 함수(%d줄 초과) %d개 · 긴 파일(%d줄 초과) %d개: %s' % (
+            docmap.LONG_FUNC, len(data['long_functions']), docmap.LONG_FILE, len(data['long_files']),
+            ', '.join((data['long_files'] + data['long_functions'])[:4])))
+
+
 def check_compile():
     dirs = [d for d in ('src', 'scripts', 'tests', 'app') if os.path.isdir(os.path.join(ROOT, d))]
+    dirs += sorted(d for d in os.listdir(ROOT) if d not in dirs and d not in SKIP_DIRS
+                   and os.path.isfile(os.path.join(ROOT, d, '__init__.py')))  # 과제 패키지(scaffold 의 core/ 등)
     top = [f for f in os.listdir(ROOT) if f.endswith('.py')]
     ok = True
     for d in dirs:
@@ -268,13 +299,37 @@ def run_tests(test_dir):
         first = (res.failures or res.errors)[0][0].id()
         rec('tests', 'FAIL', '%d run, %d fail/error, %d skip — 첫 실패: %s (python3 -m unittest -v 로 상세)' % (n, nfail, nskip, first))
     else:
-        rec('tests', 'PASS', '%d run, 0 fail, %d skip' % (n, nskip))
+        rec('tests', 'PASS', '%d run, 0 fail, %d skip (과제 테스트 = README 테스트 수)' % (n, nskip))
+
+
+def run_harness_tests(test_dir):
+    """하네스 도구 테스트(scripts/tests). 실패는 WARN — 과제 결과가 아니므로 README 테스트 수에 넣지 않는다."""
+    if not os.path.isdir(test_dir):
+        rec('harness-tests', 'SKIP', '%s 폴더 없음' % test_dir)
+        return
+    top = os.path.abspath(test_dir)
+    suite = unittest.TestLoader().discover(top, pattern='test*.py', top_level_dir=top)
+    n = suite.countTestCases()
+    if n == 0:
+        rec('harness-tests', 'SKIP', '발견된 테스트 0개')
+        return
+    runner = unittest.TextTestRunner(verbosity=0, stream=open(os.devnull, 'w', encoding='utf-8', errors='replace'))
+    res = runner.run(suite)
+    nfail = len(res.failures) + len(res.errors)
+    note = '하네스 도구 점검 — README 테스트 수에 넣지 않는다'
+    if nfail:
+        first = (res.failures or res.errors)[0][0].id()
+        rec('harness-tests', 'WARN', '%d run, %d fail/error — 첫 실패: %s (%s)' % (n, nfail, first, note))
+    else:
+        rec('harness-tests', 'PASS', '%d run, 0 fail, %d skip (%s)' % (n, len(res.skipped), note))
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--require', nargs='*', default=[], help='필수 제출 파일 경로')
-    ap.add_argument('--tests', default='tests', help='테스트 폴더')
+    ap.add_argument('--tests', default='tests', help='과제 테스트 폴더')
+    ap.add_argument('--harness-tests', default=os.path.join('scripts', 'tests'), help='하네스 도구 테스트 폴더')
+    ap.add_argument('--skip-harness', action='store_true', help='하네스 도구 테스트 생략')
     ap.add_argument('--smoke', default='', help='진입점 실행 명령 (exit 0 + 출력 있어야 PASS)')
     ap.add_argument('--freeze', action='store_true', help='1차 동결 복구본(.tmp/freeze_1/) + tests 해시 기록 후 종료')
     ap.add_argument('--check-freeze', action='store_true', help='1차 동결 이후 tests/ 변경 여부만 검사')
@@ -291,8 +346,11 @@ def main():
     check_todo_and_secrets()
     check_freeze(args.tests)
     check_debug_dir()
+    check_docstrings()
     check_compile()
     run_tests(args.tests)
+    if not args.skip_harness:
+        run_harness_tests(args.harness_tests)
     run_smoke(args.smoke)
     print('%-28s %-5s %s' % ('CHECK', 'STATUS', 'DETAIL'))
     print('-' * 80)

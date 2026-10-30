@@ -14,7 +14,7 @@ description: 두 번째(보고서 전용) Codex 세션에서 끝난 단계 묶�
 
 ## 절차
 1. **범위**: "1-3" 은 PLAN.md 4번 표의 단계 번호 = `out/debug/NN_단계명/` 의 NN. 해당 폴더가 없으면 그 단계는 `NOT_RUN` 으로 두고 보고에 적는다.
-2. **근거 수집(읽기)**: 단계마다 `out/debug/NN_*/verify.json`(숫자·테스트·파일 위치) → `green.txt`/`red.txt`(테스트 이름·결과) → `note.md`·`decisions.txt`(결정) → PLAN.md 4번 규칙표(규칙·발동 건수·상태) → DECISIONS.md 1·4·6번. 코드는 `grep -n "def \|# 결정:" <파일>` 과 `sed -n a,bp` 로 **구현 위치(파일:줄·함수)와 방법만** 읽는다(파일 통째 금지). 출력 파일은 `head -3`·`wc -l`.
+2. **근거 수집(읽기)**: 단계마다 `out/debug/NN_*/verify.json`(숫자·테스트·파일 위치) → `green.txt`/`red.txt`(테스트 이름·결과) → `note.md`·`decisions.txt`(결정) → PLAN.md 4번 규칙표(규칙·발동 건수·상태) → DECISIONS.md 1·4·6번. 코드는 먼저 `python3 scripts/docmap.py` 로 함수 위치·설명문(입력·출력·규칙)을 보고, 필요한 줄만 `sed -n a,bp` 로 읽는다 — **구현 위치(파일:줄·함수)와 방법만**(파일 통째 금지). 출력 파일은 `head -3`·`wc -l`.
 3. **스펙 작성** `out/report/stage_NN-MM.json` — `docs/flow.example.json` 과 같은 모양(`docs/diagram_guide.md` 3절 지침). 단계마다 `role` 1줄 → `implemented[]`(파일:줄·함수·무엇) → `method[]` 3~6줄(순서대로, 전문 용어 없이) → `results[]`(숫자 + note 에 출처) → `charts[]`(지침의 차트 선택표: 사유별 건수 hbar · 전/후 compare · 분포 hist · 시간 흐름 line · 단계×검증 matrix · 구성 stacked) → `samples[]` 2~3행(입력→출력) → `tests[]` → `status`. 전역 `summary` 3줄은 결론 먼저(무엇이 됐나 / 숫자가 맞나 / 남은 위험). `decisions[].stage` 로 단계에 붙인다. 범위 밖 단계는 넣지 않는다.
 4. **생성**: `python3 scripts/flowmap.py --spec out/report/stage_NN-MM.json --out out/report/stage_NN-MM.html` → exit 0 확인(합계 불일치면 근거를 다시 읽어 스펙을 고친다. 숫자를 맞추려고 바꾸지 않는다) → `python3 scripts/flowmap.py --index out/report`.
 5. **보고 5줄**: 파일 경로 / 단계별 상태 한 줄 / 핵심 숫자 3개(출처) / 근거 없음·NOT_RUN 목록 / 미리보기 명령 `python3 design-kit/serve.py $PORT --dir out/report --index index.html`(사람이 다른 터미널에서 실행 — 직접 띄우지 않는다).

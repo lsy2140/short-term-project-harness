@@ -87,7 +87,7 @@ mkdir -p screenshots
 |---|---|---|
 | 스타일가이드·템플릿 4종 구조 점검 | `python design-kit/serve.py 8014` + `python design-kit/ui_check.py kit.html dashboard console landing mobile` | 5페이지 모두 **20 PASS / 0 WARN / 0 FAIL**, exit 0 (대비 최저 4.71 `--warn/--warn-bg`) |
 | 서버 계약 | `python scripts/smoke_web.py http://127.0.0.1:8014 --path /data.json --expect-text "디자인 키트"` | **9 PASS / 0 FAIL**(GET / 302→kit.html 200, viewport, h1 1개, 외부 자원 0, JSON, 경로 탈출 404) |
-| 방어막 함수 | `python -m unittest tests.test_guards -v` | **21 tests OK**(우회 5 · 과차단 방지 2 · 합계 보존 · 마스킹 · 타임아웃 · 근거) |
+| 방어막 함수 | `python -m unittest discover -s scripts/tests -p test_guards.py -v` | **21 tests OK**(우회 5 · 과차단 방지 2 · 합계 보존 · 마스킹 · 타임아웃 · 근거) |
 | 렌더 확인(시각) | 헤드리스 크롬 1280 + 390(iframe 래퍼) 10장 | kit·dashboard·landing·mobile 양쪽 렌더 확인. 발견·수정한 결함 3건: `.alarm` 패널과 표 행 클래스 충돌 → `.row-bad/.row-warn`, 진행 바 `.bar` 와 `.topbar .bar` 충돌로 상단바 잘림 → `.progress`, 390px 상단바 글자 세로 깨짐 → `nowrap` + `.actions` 줄바꿈 |
 | 콘솔 390px | 동일 출처 iframe 에서 DOM 덤프 | `status=banner ok · 섹션 3개 · 설비 5대`, JS 오류 0 (file:// 래퍼 스크린샷은 스켈레톤으로 찍혔음 — 캡처 타이밍 문제, 실제 미리보기에서 HUMAN_CHECK 필요) |
 | 제출 전 점검 | `python scripts/preflight.py` (하네스 루트) | **exit 0** — secret-scan PASS(28파일) · abs-path PASS · compile PASS · tests PASS **33 run / 0 fail / 1 skip**(test_guards 21 포함). 미완성 문구 스캔 WARN 3건은 키트 밖 기존 파일(README.md·scripts/check_contract.py·tests/test_template.py) |

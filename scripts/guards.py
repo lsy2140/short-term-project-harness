@@ -22,7 +22,7 @@
         ('out_of_stock', lambda r: r.get('stock', 0) <= 0),
         ('missing_price', lambda r: r.get('price') is None),
     ])
-테스트: python3 -m unittest tests.test_guards -v
+테스트: python3 -m unittest discover -s scripts/tests -p test_guards.py -v
 """
 import re
 import threading

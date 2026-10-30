@@ -14,7 +14,7 @@
 형식  pending.md 항목(AGENTS.md 5절): `## D07 제목   (영향: … | 담당자 확인: 필요)` + `- [ ] A. 후보 — 근거 (추천)` 2~4개 + `담당자 질문: …`(필요할 때) + `메모:`.
       결정은 항상 사람이 한다 — 기본값·시간 경과로 대신 정하는 필드는 없다(옛 형식의 `기본값`·`안 정하면` 은 읽고 무시한다).
 종료 코드  0 정상 / 1 pending.md 없음·포트 열기 실패 / 2 인자 오류.
-순수 함수  parse_pending · parse_answers · format_answer_line · append_answer · mark_answered (파일을 만지지 않는다; tests/test_decide.py 가 검증).
+순수 함수  parse_pending · parse_answers · format_answer_line · append_answer · mark_answered (파일을 만지지 않는다; scripts/tests/test_decide.py 가 검증).
 """
 import argparse
 import datetime as dt

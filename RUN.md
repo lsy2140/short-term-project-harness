@@ -9,7 +9,7 @@
 | 0 | 시작 | 녹화 시작 → 휴대폰 거치 → 신분증·안경 검사 → README 정독 (**코드 금지**) · 하네스 복사 5분 이내 · **TASK.md 머리에 `시작: HH:MM`** | 한 문장 목표 | README 두 번째 정독, 제출 파일명·형식 메모 |
 | 0–10 | 읽기 | 파일 목록·데이터 형식·제출물·평가 기준. P0 10항목. `eda_bootstrap.py`로 데이터 첫 파악 | 제출 파일명·형식 메모 | P0 체크 표시, eda_summary 를 내 말로 3줄 번역 |
 | 10–30 | 계약·인터뷰 | TASK.md 1~5 → 담당자 질문 **5~8개(번호, 한 주제 한 질문)** → 답변을 `답변 N:` 으로 돌려주기 → DECISIONS.md 0번 합의문 → 담당자 확인 | 합의문 확인됨 | 담당자 창 왕복, 되묻기 후보 2개 준비, 합의문을 소리 내어 읽기 |
-| 30–63 | 첫 완주 | 가장 작은 end-to-end. 출력 파일 생성·형식 확인·`scripts/debug_dir.py 01_첫완주` 로 첫 기록. 웹 과제는 30분 안에 템플릿 복사→더미 렌더→미리보기 확인 | 뭔가 하나가 실제로 돈다 | `decisions/pending.md` 답하기(`decide.py`), 보고서 세션에 `$stage-report 1` 요청 → `out/report/` 확인, 담당자 추가 질문 1개 |
+| 30–63 | 첫 완주 | `python3 scripts/scaffold.py --stages <PLAN 단계들>` 뼈대로 가장 작은 end-to-end. 출력 파일 생성·형식 확인·`scripts/debug_dir.py 01_첫완주` 로 첫 기록. 웹 과제는 30분 안에 템플릿 복사→더미 렌더→미리보기 확인 | 뭔가 하나가 실제로 돈다 | `decisions/pending.md` 답하기(`decide.py`), 보고서 세션에 `$stage-report 1` 요청 → `out/report/` 확인, 담당자 추가 질문 1개 |
 | 63–110 | 규칙·검증 | 규칙 1개 = 테스트 1개(먼저 FAIL 확인) → 구현 → PASS → 발동 건수 확인 → 디버그 폴더 기록. `unittest`와 `check_contract.py` 짝으로. **80분 이후 새 접근(라이브러리·구조 변경) 금지** | TASK.md 5번 상태 PASS 증가 | DECISIONS 4번·debug 폴더 note.md 가 '무엇·왜'인지 확인, 보고서 세션에 끝난 단계 묶음(예 1-3) 보고서 요청 → 차트·숫자·샘플 검증, HUMAN_CHECK 화면, 종합정리 핵심 ① 상충 조건을 내 말로 메모 |
 | 110–120 | **1차 동결** | 지금 제출해도 되는 상태: preflight exit 0 + check_contract + README 실행 명령 실제 실행 + TASK 가정 동기화 + `preflight.py --freeze`(복구본 `.tmp/freeze_1/`·tests 해시) | 여기서 끝나도 점수가 나온다 | 제출 체크 앞 절반 표시, 종합정리 핵심 ② 가장 위험한 실패를 내 말로 메모 |
 | 120–130 | 규칙 계속 | 설명할 수 있는 것만 추가 | | 종합정리 핵심 ③ Codex 를 믿지 않은 지점을 내 말로 메모, `decisions/` 미답 항목 0 확인 |
@@ -52,7 +52,8 @@
 ## 제출 체크
 - [ ] 필수 파일명·경로·형식이 README와 일치 (헤더·정렬·인코딩)
 - [ ] 실행 명령을 실제로 쳐봤고 출력을 확인 (preflight `--smoke`로 기록)
-- [ ] 테스트 수·결과를 숫자로 말할 수 있음 · check_contract exit 0
+- [ ] 과제 테스트 수·결과를 숫자로 말할 수 있음(preflight `tests` 줄 — `harness-tests` 줄은 README 에 넣지 않음) · check_contract exit 0
+- [ ] `python3 scripts/docmap.py --check` exit 0 (함수마다 설명문 입력·출력 줄) · 긴 함수(40줄)·긴 파일(300줄)은 나눴거나 이유를 DECISIONS 1번에
 - [ ] TASK.md 완료 조건 ↔ 테스트 1:1 · 규칙별 발동 건수 확인
 - [ ] DECISIONS.md에 안 만든 것·한계·실패 지점·검증 로그가 적힘
 - [ ] README/PLAN에 TODO·미구현·TBD 문구 0, 데모 순서·실제 vs 목업 표 있음
@@ -64,6 +65,7 @@
 - [ ] 심사자 시뮬레이션 미충족 항목 보완 또는 한계로 기록
 - [ ] 웹 과제: 미리보기 콘솔 오류 0 / 390px 가로 스크롤 없음 / 데모 순서 1회 완주(시각 기록) / screenshots/ 2장
 - [ ] `decisions/pending.md` 미답 항목 0 (전부 사람이 답함, 담당자 확인 필요 항목은 담당자 답을 메모에 남김)
+- [ ] 담당자 답으로 바뀐 요구는 `요구사항 갱신:` 으로 보냈고 DECISIONS.md 0번 '합의 변경' 목록에 시각·출처와 함께 있음
 - [ ] `out/debug` 단계 폴더 ≤ 40파일, 스냅샷 폴더 없음, `.tmp/` 는 제출물 아님(복구본 `.tmp/freeze_1/` 만 허용)
 - [ ] `out/report/index.html`(보고서 세션 `$stage-report all`) 최신, `docs/diagrams/`(archify, 있으면) README 데모 순서에 링크
 - [ ] `out/report/implementation_summary.md`(보고서 세션 `$implementation-summary`) 표 4개(오해하기 쉬운 지점·부분별 설계 이유·장애 대응표·대체값)와 정리 항목 A~H 전부 채움, 코드 좌표 대조 끝, 핵심 3개가 최신 구현과 맞음, README 에 링크

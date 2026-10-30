@@ -17,7 +17,7 @@
   다음 추천: (1) … (2) … (3) …
   대기 중 할 일(사람): …
 구간 경계는 이 파일의 PHASES(RUN.md 구간표와 같은 경계)이고, 대기 중 문구는 RUN.md 구간표의 마지막 열과 글자 그대로 같다
-(tests/test_next.py 가 둘 다 대조한다).
+(scripts/tests/test_next.py 가 둘 다 대조한다).
 exit 0: 출력함(시작 시각이 없어도 안내 후 0) / exit 2: 인자 형식 오류
 """
 import argparse
@@ -58,7 +58,7 @@ def phase_of(elapsed):
 
 
 # RUN.md 구간표의 '대기 중 사람이 할 일' 열. 키는 RUN.md 첫 열(경과)과 같은 글자(–는 U+2013).
-# 문구를 고칠 때는 RUN.md 를 먼저 고치고 여기를 맞춘다 — tests/test_next.py 가 불일치를 FAIL 로 잡는다.
+# 문구를 고칠 때는 RUN.md 를 먼저 고치고 여기를 맞춘다 — scripts/tests/test_next.py 가 불일치를 FAIL 로 잡는다.
 WAITING = {
     '0': 'README 두 번째 정독, 제출 파일명·형식 메모',
     '0–10': 'P0 체크 표시, eda_summary 를 내 말로 3줄 번역',
@@ -90,7 +90,7 @@ PHASE_TODO = {
     '10–30': ['TASK.md 1~5 채우기(사실·가정·열린 질문·안 할 일·완료 조건)',
               '담당자 질문 5~8개(번호, 한 주제 한 질문) 보내기 → 답변을 `답변 N:` 으로 매핑',
               'DECISIONS.md 0번 합의문 → 담당자 확인'],
-    '30–63': ['가장 작은 end-to-end: 입력 → 출력 파일 생성 → 형식 확인',
+    '30–63': ['`python3 scripts/scaffold.py --stages <PLAN 단계들>` 뼈대로 가장 작은 end-to-end: 입력 → 출력 파일 → 형식 확인',
               '`python3 scripts/debug_dir.py 01_첫완주` 로 첫 기록(웹 과제는 템플릿 복사 → 더미 렌더 → 미리보기 확인)',
               '`out/debug/01_첫완주/verify.json` 채우기 → 사람이 보고서 세션에 `$stage-report 1`'],
     '63–110': ['규칙 1개 = 테스트 1개: 먼저 FAIL → 구현 → PASS → 발동 건수 → 디버그 폴더 기록',
@@ -318,7 +318,8 @@ def recommend(elapsed, key, rules, tests, record_age, pending=None):
         add(FINAL_FREEZE)
     if pending and pending['open']:
         ask = ' (담당자 확인 필요: %s)' % '·'.join(pending['ask']) if pending['ask'] else ''
-        add('결정 대기 %s%s → decisions/pending.md 에 [x] 또는 decide.py(사람이 실행). 그 결정에 기대는 작업은 답 전까지 보류' % ('·'.join(pending['open']), ask))
+        tail = ' · 담당자 답은 그 항목 메모에 적고 메인 세션에 `요구사항 갱신:` 으로 전달' if pending['ask'] else ''
+        add('결정 대기 %s%s → decisions/pending.md 에 [x] 또는 decide.py(사람이 실행). 그 결정에 기대는 작업은 답 전까지 보류%s' % ('·'.join(pending['open']), ask, tail))
     if record_age is not None and record_age > 20:
         add('기록: `python3 scripts/debug_dir.py NN_단계명` 폴더에 red/green/verify 남기기 (마지막 기록 %d분 전)' % record_age)
     elif record_age is None and elapsed >= 30:
