@@ -66,4 +66,4 @@
 - [ ] `decisions/pending.md` 미답 항목 0 (전부 사람이 답함, 담당자 확인 필요 항목은 담당자 답을 메모에 남김)
 - [ ] `out/debug` 단계 폴더 ≤ 40파일, 스냅샷 폴더 없음, `.tmp/` 는 제출물 아님(복구본 `.tmp/freeze_1/` 만 허용)
 - [ ] `out/report/index.html`(보고서 세션 `$stage-report all`) 최신, `docs/diagrams/`(archify, 있으면) README 데모 순서에 링크
-- [ ] `out/report/implementation_summary.md`(보고서 세션 `$implementation-summary`) 정리 항목 A~H 전부 채움, 핵심 3개가 최신 구현과 맞음, README 에 링크
+- [ ] `out/report/implementation_summary.md`(보고서 세션 `$implementation-summary`) 표 4개(오해하기 쉬운 지점·부분별 설계 이유·장애 대응표·대체값)와 정리 항목 A~H 전부 채움, 코드 좌표 대조 끝, 핵심 3개가 최신 구현과 맞음, README 에 링크

@@ -74,7 +74,7 @@ design-kit/DESIGN.md를 읽어. design-kit/templates/<dashboard|console|landing|
 
 ## 8. 최종 구현 종합정리 (동결 구간, 보고서 세션)
 ```
-$implementation-summary 최종 구현 종합정리를 만들어 줘. docs/implementation_summary.md 의 정리 항목 A~H 를 전부 채우고(해당 없으면 "해당 없음 — 이유"), 결정은 4문장(사실→결정→근거→한계), 위험·약한 곳은 3단(지목→파급→계획)으로. 내가 실제로 한 것만 근거로, 안 한 건 안 했다고 써. out/report/implementation_summary.md 에만 써.
+$implementation-summary 최종 구현 종합정리를 만들어 줘. docs/implementation_summary.md 지침대로 표 4개(오해하기 쉬운 지점 / 부분별 설계 이유 / 장애 대응표 / 대체값·추정값·제외)를 먼저 채우고, 정리 항목 A~H 를 전부 채워(해당 없으면 "해당 없음 — 이유"). 결정은 4문장(사실→결정→근거→한계), 위험·약한 곳은 3단(지목→파급→계획)으로. 내가 실제로 한 것만 근거로, 안 한 건 안 했다고 써. 적은 코드 좌표는 sed -n 으로 다시 열어 대조해. out/report/implementation_summary.md 에만 써.
 이 정리에서 내가 내 말로 설명하기 어려울 문장을 짚고 전문 용어 없이 다시 써 줘.
 ```
 
