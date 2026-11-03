@@ -1,8 +1,0 @@
-This skill was written for this project and is licensed under the MIT License.
-See the LICENSE file in the repository root.
-
-Inspired by https://github.com/proflead/codex-skills-library (commit a05260c):
-  - skills/testing/unit-test-starter/SKILL.md
-
-The upstream repository does not specify a license. No text was copied;
-only the topic and the order of steps were used as ideas.

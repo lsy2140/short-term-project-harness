@@ -11,7 +11,9 @@ SORT_KEYS/RULES/recompute_expected/METAMORPHIC)을 이 과제 규칙으로 채�
   B 대조: 입력에서 규칙을 독립 재계산 → 출력과 키 단위 비교 (누락·초과·값 불일치)
   X 실행: RUN_CMD 를 두 번 돌려 출력 해시 동일(결정성), 입력 파일 해시 불변, 종료 코드 0
   M 메타모픽: 입력 변형(행 셔플 / 기준일 이후 행 제거 / 모델 응답 비우기) 후 재실행해도 출력이 같아야 함, 출력 전체에 민감 문자열 없음
-종료 코드: 0 위반 없음 / 1 위반 있음 / 2 검사한 것이 없음(통과로 읽지 말 것)
+     가드: 변형 전에 빈 폴더를 INPUT_DIR 로 1회 돌린다. exit 0 에 출력까지 같으면 RUN_CMD 가 INPUT_DIR 을 안 읽는 것 → FAIL M-noop
+     (변형 입력을 안 읽은 '출력 동일' 이 통과로 읽히지 않게). scaffold 의 run.py 는 INPUT_DIR 을 기본 입력 폴더로 읽는다.
+종료 코드: 0 위반 없음 / 1 위반 있음 / 2 검사한 것이 없음(통과로 읽지 말 것 — 출력도 RUN_CMD 의 .py 도 아직 없을 때)
 """
 import argparse
 import csv
@@ -27,13 +29,14 @@ import tempfile
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:  # noqa
     pass
 
 # ------------------------------------------------------------ 과제마다 바꾸는 부분
-INPUTS = ['data/input.csv']                 # 입력 파일 (불변성·변형 대상)
+INPUTS = ['data/<입력>.csv']                # 입력 파일 (불변성·변형 대상) — 과제 입력 경로로 바꾼다(자리표시 그대로면 M층 FAIL M-0)
 OUTPUT = 'out/result.csv'                   # 출력 파일 (csv 또는 json)
-RUN_CMD = [sys.executable, 'main.py']       # 출력을 만드는 명령. 변형 검사 때는 환경변수 INPUT_DIR 로 입력 폴더를 바꿔 실행한다(아래 참고)
+RUN_CMD = [sys.executable, 'run.py']        # 출력을 만드는 명령(scaffold 입구 run.py). 변형 검사 때는 환경변수 INPUT_DIR 로 입력 폴더를 바꿔 실행한다(아래 참고)
 REQUIRED_COLUMNS = ['id', 'value', 'status']
 KEY_COLUMNS = ['id']
 SORT_KEYS = [('status', False), ('id', False)]   # (열, 내림차순?) 정렬 계약. 비우면 검사 안 함
@@ -41,11 +44,12 @@ ALLOWED = {'status': {'OK', 'ALERT', 'REVIEW'}}  # 열 허용값
 PII_PATTERNS = [r'\b\d{3}-\d{4}-\d{4}\b']        # 출력에 있으면 안 되는 문자열 패턴(전화·사번·실명 등 과제에 맞게)
 METAMORPHIC = {
     'shuffle_rows': True,          # 입력 행 순서를 섞어도 출력 동일
-    'drop_future_rows': {'file': 'data/input.csv', 'date_col': 'timestamp', 'as_of': '2026-10-27T23:59:59'},  # 기준일 이후 행 제거해도 동일(누수) · 없으면 None
+    'drop_future_rows': {'file': 'data/<입력>.csv', 'date_col': 'timestamp', 'as_of': '2026-10-27T23:59:59'},  # 기준일 이후 행 제거해도 동일(누수) · 없으면 None
     'disable_model': None,         # 예: {'file': 'data/model_responses.json'} → {} 로 비워도 출력이 나와야 함(fallback)
 }
-# 변형 검사 규약: RUN_CMD 가 환경변수 INPUT_DIR(기본 'data') 아래의 입력을 읽어야 변형 입력으로 재실행할 수 있다.
-# 프로그램이 INPUT_DIR 을 지원하지 않으면 METAMORPHIC 전부 None 으로 두고 S/B/X 만 쓴다.
+# 변형 검사 규약: RUN_CMD 가 환경변수 INPUT_DIR(없으면 'data') 을 기본 입력 폴더로 읽어야 변형 입력으로 재실행할 수 있다.
+# scaffold 의 run.py 는 `--input-dir` 기본값을 os.environ.get('INPUT_DIR') 로 둔다. M층 앞 가드가 빈 INPUT_DIR 로 1회 돌려
+# 읽는지 확인한다(안 읽으면 FAIL M-noop). 프로그램이 INPUT_DIR 을 지원하지 않으면 METAMORPHIC 전부 None 으로 두고 S/B/X 만 쓴다.
 
 
 def recompute_expected(inputs):
@@ -177,11 +181,21 @@ def run_once(env_extra=None):
     return done.returncode, (done.stderr or '')[-300:], (sha(OUTPUT) if os.path.exists(OUTPUT) else None)
 
 
+def run_script():
+    """RUN_CMD 가 가리키는 .py 파일 경로(없으면 None — 'python -m 모듈' 같은 형식은 확인하지 않는다)."""
+    for part in RUN_CMD or []:
+        if str(part).endswith('.py'):
+            return str(part)
+    return None
+
+
 def check_execution(rep):
     if not RUN_CMD:
         rep.info('RUN_CMD 없음 → X층 생략')
         return None
     before = {p: sha(p) for p in INPUTS if os.path.exists(p)}
+    if not before:
+        rep.warn('X03', 'INPUTS 파일이 하나도 없음(%s) → 입력 불변 검사 생략. 과제 입력 경로로 채운다' % ', '.join(INPUTS[:3]))
     outs = []
     for i in range(2):
         rc, err, h = run_once()
@@ -211,14 +225,63 @@ def _write_rows(path, rows, header):
             w.writerows(rows)
 
 
+def _missing_inputs(enabled):
+    """M층이 읽을 입력 파일 중 없는 것. shuffle_rows 는 INPUTS 를, drop_future_rows 는 cfg['file'] 을 읽는다."""
+    need = []
+    for name, cfg in enabled:
+        if name == 'shuffle_rows':
+            need += list(INPUTS)
+        elif name == 'drop_future_rows':
+            need.append(cfg['file'])
+    return [p for p in dict.fromkeys(need) if not os.path.isfile(p)]
+
+
+def probe_input_dir(baseline_hash):
+    """가드: 빈 폴더를 INPUT_DIR 로 주고 1회 실행한다. RUN_CMD 가 INPUT_DIR 을 읽으면 실패하거나 출력이 바뀐다(없어진다).
+    출력: (읽음 True/False, 설명). 실행 전 출력 파일을 치워 두고 끝나면 기준 출력으로 되돌린다."""
+    tmp = tempfile.mkdtemp(prefix='mm_probe_')
+    backup = os.path.join(tmp, 'baseline_output')
+    empty = os.path.join(tmp, 'empty_input')
+    os.makedirs(empty)
+    had_output = os.path.isfile(OUTPUT)
+    try:
+        if had_output:
+            shutil.copy2(OUTPUT, backup)
+            os.remove(OUTPUT)
+        rc, err, h = run_once({'INPUT_DIR': empty})
+    finally:
+        if had_output:
+            os.makedirs(os.path.dirname(OUTPUT) or '.', exist_ok=True)
+            shutil.copy2(backup, OUTPUT)
+        shutil.rmtree(tmp, ignore_errors=True)
+    if rc == 0 and h == baseline_hash:
+        return False, '빈 INPUT_DIR 로 돌려도 exit 0 · 출력 해시 동일'
+    if rc != 0:
+        return True, '빈 INPUT_DIR → exit %d' % rc
+    return True, '빈 INPUT_DIR → 출력 %s' % ('없음' if h is None else '바뀜')
+
+
 def check_metamorphic(rep, baseline_hash):
+    enabled = [(name, cfg) for name, cfg in METAMORPHIC.items() if cfg]
+    if not enabled:
+        rep.info('M층: METAMORPHIC 이 모두 None → 생략')
+        return
     if not RUN_CMD or baseline_hash is None:
         rep.info('M층: 기준 실행 없음 → 생략')
         return
+    missing = _missing_inputs(enabled)
+    if missing:
+        rep.fail('M-0', '변형할 입력 파일 없음: %s → INPUTS·METAMORPHIC 의 file 을 과제 입력 경로로 채우거나 그 항목을 None 으로'
+                 % ', '.join(missing[:3]))
+        return
+    reads, how = probe_input_dir(baseline_hash)
+    if not reads:
+        rep.fail('M-noop', 'RUN_CMD 가 INPUT_DIR 을 읽지 않음 → M층 무효(%s). 입력 폴더 기본값을 '
+                 "os.environ.get('INPUT_DIR') 로 두거나(scaffold run.py 규약) METAMORPHIC 을 모두 None 으로" % how)
+        return
+    rep.info('M 가드: RUN_CMD 가 INPUT_DIR 을 읽음(%s)' % how)
     base_dir = os.path.dirname(INPUTS[0]) or 'data'
-    for name, cfg in METAMORPHIC.items():
-        if not cfg:
-            continue
+    for name, cfg in enabled:
         tmp = tempfile.mkdtemp(prefix='mm_')
         try:
             for f in os.listdir(base_dir):
@@ -280,9 +343,13 @@ def main():
     else:
         rep.warn('S-1', '출력 파일 없음: %s' % OUTPUT)
     if not a.no_run:
-        h = check_execution(rep)
-        checked += 1
-        check_metamorphic(rep, h)
+        script = run_script()
+        if script and not os.path.exists(script):
+            rep.warn('X00', 'RUN_CMD 의 %s 없음 → X·M층 생략(과제 코드를 만든 뒤 RUN_CMD 를 맞춘다)' % script)
+        else:
+            h = check_execution(rep)
+            checked += 1
+            check_metamorphic(rep, h)
     print('=== contract check ===')
     print(rep.render())
     if checked == 0:

@@ -3,231 +3,162 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>설비 점검 앱</title>
-<!-- 템플릿: 모바일 앱형 = 앱바 + 단계형 폼(설비 선택 → 점검 항목 → 비고·제출) + 오늘 할 일 리스트 + 하단 탭바(safe-area) + 토스트.
-     폴드(844px) 안에 '핵심 숫자 1개 + 리스트 첫 2행' 이 보이도록 폼은 접힌 상태에서 시작한다. 390px 에서 1열, 가로 스크롤 없음.
-     데이터: data.json 의 mobile. 입력 검증은 화면에서 먼저(필수 선택·1개 이상 체크), 제출 시 토스트. -->
+<title>설비 점검</title>
+<!-- 템플릿 mobile (현장 작업자 앱): 큰 숫자 1 + 행동 1(전폭 CTA) + 56px 행 + 하단 탭 + 바텀시트. 표·다열 그리드 없음.
+ 390 +--------------------------------+
+     | 설비 점검              [종 2]  |  appbar(고정)
+     | [배너: 실데이터/샘플/실패]      |
+     | 오늘 남은 점검                 |
+     | 3 건    다음 09:30 ETC-03      |  큰 숫자 1개
+     | [       다음 점검 시작       ]  |  전폭 CTA 48px, 누르면 바텀시트 체크리스트
+     | [긴급] 고장 원인 1차 점검 09:30 |  56px 행(누르면 같은 시트)
+     | [PM]   PM 완료 확인 서명  12:00 |
+     | [오늘]   [점검]   [알림]        |  하단 탭(safe-area, 같은 페이지 안 이동)
+ 1280: 가운데 480px 한 열 그대로(데스크톱 전용 배치 없음)
+  매핑: data.json 의 mobile.tasks / mobile.checklist / mobile.equipment_options / alarms. 저장은 이 화면 안에서만(서버 호출은 save 함수에 넣는다). -->
 <link rel="stylesheet" href="../tokens.css">
 <link rel="stylesheet" href="../base.css">
 <link rel="stylesheet" href="../components.css">
 <style>
-  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
-  .summary .card { padding: 12px 14px; }
-  .summary .label { font-size: 12px; color: var(--muted); }
-  .summary .value { font-size: 26px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-  .panel[hidden] { display: none; }
-  .checks { display: grid; gap: var(--s-2); }
+  .big h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+  section[id] { scroll-margin-top: 64px; }
+  .tasks { padding: 0; overflow: hidden; }
+  .rows .r .t { white-space: normal; }
+  .rows .r .due { display: flex; align-items: center; gap: 2px; color: var(--muted); font-size: 13px; }
+  .rows .r.done { opacity: .55; }
+  .sheet h2 { margin-bottom: var(--s-3); }
+  .appbar .btn { gap: 4px; }
 </style>
 </head>
-<body class="app">
-<header class="appbar">
-  <h1 id="app-title">설비 점검</h1>
-  <span class="badge" id="data-chip">확인 중</span>
-</header>
-
-<main>
-  <div class="banner" id="status" hidden></div>
-
-  <div class="summary" aria-label="오늘 요약">
-    <div class="card"><div class="label">오늘 할 일</div><div class="value num" id="n-tasks">0</div></div>
-    <div class="card"><div class="label">긴급</div><div class="value num" id="n-urgent" style="color: var(--bad)">0</div></div>
-  </div>
-
-  <section class="card" aria-labelledby="form-title">
-    <div class="row between">
-      <h2 id="form-title" style="font-size: 18px; margin: 0">점검 기록</h2>
-      <button class="btn sm" type="button" id="btn-open">시작</button>
-    </div>
-    <div id="form-wrap" hidden style="margin-top: var(--s-4)">
-      <div class="steps" id="steps" aria-label="진행 단계">
-        <b class="on">1</b><i></i><b>2</b><i></i><b>3</b>
-      </div>
-      <form class="form" id="form" novalidate style="margin-top: var(--s-4)">
-        <div class="panel" data-step="1">
-          <div class="field">
-            <label for="f-eqp">설비</label>
-            <select id="f-eqp" required><option value="">선택</option></select>
-            <span class="help">점검할 설비 ID. 목록에 없으면 담당자에게 요청한다.</span>
-            <span class="error" id="e-eqp" hidden>설비를 선택한다.</span>
-          </div>
-          <div class="btn-row"><button class="btn brand" type="button" data-next="2">다음</button></div>
-        </div>
-        <div class="panel" data-step="2" hidden>
-          <div class="field">
-            <span class="label" id="chk-label">점검 항목</span>
-            <div class="checks" id="checks" role="group" aria-labelledby="chk-label"></div>
-            <span class="error" id="e-chk" hidden>항목을 1개 이상 확인한다.</span>
-          </div>
-          <div class="btn-row"><button class="btn" type="button" data-next="1">이전</button><button class="btn brand" type="button" data-next="3">다음</button></div>
-        </div>
-        <div class="panel" data-step="3" hidden>
-          <div class="field">
-            <label for="f-note">비고</label>
-            <textarea id="f-note" maxlength="200" rows="3"></textarea>
-            <span class="help">이상이 있으면 수치와 함께 적는다. 예: 압력 2.3 Torr(기준 2.0)</span>
-          </div>
-          <div class="field">
-            <span class="label">확인</span>
-            <p class="meta" id="confirm"></p>
-          </div>
-          <div class="btn-row"><button class="btn" type="button" data-next="2">이전</button><button class="btn brand wide" type="submit" id="btn-submit">점검 결과 제출</button></div>
-        </div>
-      </form>
-    </div>
+<body>
+<div class="app">
+  <header class="appbar">
+    <h1 id="title">설비 점검</h1>
+    <a class="btn ghost sm" href="#alarms" aria-label="알림 보기"><svg class="ico" aria-hidden="true"><use href="../icons.svg#i-bell"/></svg><span id="n-alarm">0</span></a>
+  </header>
+  <main>
+    <div class="banner" id="status" hidden></div>
+    <section class="big" id="today" aria-labelledby="h-today">
+      <h2 id="h-today">오늘 남은 점검</h2>
+      <div class="value"><span id="left">-</span><small>건</small></div>
+      <span class="meta" id="next">-</span>
+    </section>
+    <button class="btn brand wide" type="button" id="start">다음 점검 시작</button>
+    <section id="tasks" aria-labelledby="h-tasks">
+      <h2 id="h-tasks">점검 목록</h2>
+      <div class="card tasks"><div class="rows tall" id="list"></div></div>
+    </section>
+    <section id="alarms" aria-labelledby="h-alarms">
+      <h2 id="h-alarms">알림</h2>
+      <div class="alarm-list" id="alarm-list"></div>
+    </section>
+  </main>
+  <nav class="tabbar" aria-label="주요 메뉴">
+    <a href="#today" class="on" aria-current="page"><svg class="ico" aria-hidden="true"><use href="../icons.svg#i-home"/></svg>오늘</a>
+    <a href="#tasks"><svg class="ico" aria-hidden="true"><use href="../icons.svg#i-list"/></svg>점검</a>
+    <a href="#alarms"><svg class="ico" aria-hidden="true"><use href="../icons.svg#i-bell"/></svg>알림</a>
+  </nav>
+  <div class="scrim" id="scrim" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="h-sheet" hidden>
+    <div class="grip"></div>
+    <h2 id="h-sheet">점검 체크리스트</h2>
+    <form class="form" id="form" novalidate>
+      <div class="field"><label for="eqp">설비</label><select id="eqp"></select></div>
+      <div class="stack tight" id="checks"></div>
+      <div class="field"><label for="memo">메모</label><textarea id="memo" placeholder="이상이 있으면 적습니다"></textarea></div>
+      <div class="field"><p class="error" id="form-error" role="alert" hidden></p></div>
+      <button class="btn brand wide" type="submit">점검 완료 저장</button>
+      <button class="btn ghost wide" type="button" id="cancel">닫기</button>
+    </form>
   </section>
+</div>
 
-  <section aria-labelledby="list-title">
-    <div class="row between" style="margin-bottom: var(--s-2)">
-      <h2 id="list-title" style="font-size: 18px; margin: 0">오늘 할 일</h2>
-      <span class="meta" id="list-meta"></span>
-    </div>
-    <div class="list" id="tasks"></div>
-  </section>
-</main>
-
-<nav class="tabbar" aria-label="주요 메뉴">
-  <a href="#" class="on" aria-current="page"><span class="ico" aria-hidden="true">✓</span>점검</a>
-  <a href="dashboard.html"><span class="ico" aria-hidden="true">▦</span>설비</a>
-  <a href="dashboard.html#sec-alarms"><span class="ico" aria-hidden="true">!</span>알람</a>
-  <a href="#"><span class="ico" aria-hidden="true">●</span>내 정보</a>
-</nav>
-
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
+<script src="../kit.js"></script>
 <script>
 (function () {
   'use strict';
-  var DATA_URLS = ['../data.json', 'data.json'];
-  var FALLBACK = {
-    mobile: {
-      title: '설비 점검',
-      equipment_options: ['ETC-03', 'DEP-02', 'PHO-02'],
-      checklist: [{id: 'c1', label: '챔버 압력 정상 범위'}, {id: 'c2', label: '인터락 해제 이력 없음'}],
-      tasks: [
-        {id: 'T-101', eqp: 'ETC-03', title: '고장 원인 1차 점검', due: '09:30', state: 'bad', state_label: '긴급'},
-        {id: 'T-102', eqp: 'DEP-02', title: 'PM 완료 확인 서명', due: '12:00', state: 'warn', state_label: 'PM'}
-      ]
-    }
+  var SAMPLE = {
+    meta: { asof: '2026-01-01T09:00' },
+    mobile: { title: '설비 점검', equipment_options: ['EQ-01'], checklist: [{ id: 'c1', label: '샘플 확인 항목' }],
+      tasks: [{ id: 'T-S01', eqp: 'EQ-01', title: '샘플 점검', due: '10:00', state: 'info', state_label: '일반' }] },
+    alarms: []
   };
-  var S = {m: null, step: 1, done: {}};
+  var SEV = { Critical: ['긴급', 'bad'], Major: ['주의', 'warn'], Minor: ['정보', 'info'] };
+  var $ = function (id) { return document.getElementById(id); };
+  var M = null, A = [], cur = null;
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+  function empty(title, hint) { return '<div class="empty"><b>' + K.esc(title) + '</b>' + K.esc(hint || '') + '</div>'; }
+  function open() { return M.tasks.filter(function (t) { return !t.done; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; }); }
+  function render() {
+    var left = open(), nx = left[0];
+    $('left').textContent = left.length;
+    $('next').textContent = nx ? '다음 ' + nx.due + ' ' + nx.eqp + ' ' + nx.title : '오늘 점검을 모두 마쳤습니다';
+    $('start').disabled = !nx;
+    $('start').textContent = nx ? '다음 점검 시작' : '오늘 점검 완료';
+    $('list').innerHTML = M.tasks.map(function (t, i) {
+      return '<button type="button" class="r' + (t.done ? ' done' : '') + '" data-i="' + i + '">' + K.badge(t.done ? '완료' : t.state_label, t.done ? 'off' : t.state) +
+        '<span><span class="t">' + K.esc(t.title) + '</span><br><span class="s id">' + K.esc(t.eqp) + '</span></span>' +
+        '<span class="due num">' + K.esc(t.due) + '<svg class="ico sm" aria-hidden="true"><use href="../icons.svg#i-chevron-right"/></svg></span></button>';
+    }).join('') || empty('오늘 배정된 점검이 없습니다', '새 점검이 배정되면 여기에 나옵니다.');
+    var unacked = A.filter(function (a) { return !a.ack; });
+    $('n-alarm').textContent = unacked.length;
+    $('alarm-list').innerHTML = unacked.map(function (a) {
+      var s = SEV[a.sev] || [a.sev, 'info'];
+      return '<div class="alarm"><span class="sev ' + s[1] + '"></span>' + K.badge(s[0], s[1]) + '<span class="msg">' + K.esc(a.eqp) + ' ' + K.esc(a.msg) +
+        '</span><span class="when">' + K.hhmm(a.at) + '</span></div>';
+    }).join('') || empty('새 알림이 없습니다', '');
+  }
+  function openSheet(task) {
+    cur = task;
+    $('eqp').innerHTML = M.equipment_options.map(function (e) { return '<option' + (task && task.eqp === e ? ' selected' : '') + '>' + K.esc(e) + '</option>'; }).join('');
+    $('checks').innerHTML = M.checklist.map(function (c) {
+      return '<label class="check"><input type="checkbox" name="c" value="' + K.esc(c.id) + '"><span>' + K.esc(c.label) + '</span></label>';
+    }).join('');
+    $('memo').value = '';
+    $('form-error').hidden = true;
+    $('sheet').hidden = false; $('scrim').hidden = false;
+    $('h-sheet').textContent = task ? task.eqp + ' ' + task.title : '점검 체크리스트';
+    $('h-sheet').setAttribute('tabindex', '-1'); $('h-sheet').focus();
+  }
+  function closeSheet() { $('sheet').hidden = true; $('scrim').hidden = true; $('start').focus(); }
+  function save(task) { task.done = true; }   // 서버가 있으면 여기서 POST 하고 실패 시 배너로 알린다
+  function boot() {
+    K.load('../data.json', SAMPLE).then(function (r) {
+      if (!r.data || !r.data.mobile) {
+        K.setStatus($('status'), 'failed', (r.error || 'mobile 항목 없음') + '. 서버 경로와 data.json 형식을 확인하세요.');
+        $('list').innerHTML = empty('점검 목록을 불러오지 못했습니다', '잠시 뒤 다시 열어 주세요.');
+        $('start').disabled = true;
+        return;
+      }
+      M = r.data.mobile; A = r.data.alarms || [];
+      $('title').textContent = M.title || '설비 점검';
+      K.setStatus($('status'), r.state, r.state === 'ok' ? '기준 ' + K.hhmm((r.data.meta || {}).asof) : r.error + '. 내장 샘플을 보여줍니다.');
+      render();
     });
   }
-  function badge(kind, text) { return '<span class="badge ' + kind + '">' + esc(text) + '</span>'; }
-  function toast(msg) {
-    var t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(toast.timer); toast.timer = setTimeout(function () { t.classList.remove('show'); }, 1800);
-  }
-  function setStatus(kind, msg) {
-    var el = document.getElementById('status');
-    var cls = {ok: 'ok', fallback: 'warn', failed: 'bad'}[kind] || 'warn';
-    var head = {ok: '데이터 정상', fallback: '내장 샘플', failed: '렌더 실패'}[kind];
-    el.className = 'banner ' + cls;
-    el.innerHTML = '<b>' + esc(head) + '</b><span>' + esc(msg) + '</span>';
-    el.hidden = kind === 'ok';
-    var chip = document.getElementById('data-chip');
-    chip.className = 'badge ' + cls + (kind === 'ok' ? ' live' : '');
-    chip.textContent = {ok: '동기화됨', fallback: '샘플', failed: '오류'}[kind];
-  }
-
-  function renderTasks() {
-    var tasks = S.m.tasks || [];
-    document.getElementById('tasks').innerHTML = tasks.map(function (t) {
-      var done = S.done[t.id];
-      return '<div class="card" data-id="' + esc(t.id) + '"' + (done ? ' style="opacity:.6"' : '') + '>' +
-        '<div class="avatar ' + esc(t.state) + '">' + esc(t.eqp.split('-')[0]) + '</div>' +
-        '<div><div class="t">' + esc(t.title) + '</div><div class="s"><span class="id">' + esc(t.eqp) + '</span> ' + esc(t.due) + ' 까지</div></div>' +
-        (done ? badge('ok', '완료') : badge(t.state, t.state_label)) + '</div>';
-    }).join('') || '<div class="empty"><b>오늘 할 일이 없습니다</b>새 점검이 배정되면 여기에 나타납니다.</div>';
-    var open = tasks.filter(function (t) { return !S.done[t.id]; });
-    document.getElementById('n-tasks').textContent = open.length;
-    document.getElementById('n-urgent').textContent = open.filter(function (t) { return t.state === 'bad'; }).length;
-    document.getElementById('list-meta').textContent = open.length + ' / ' + tasks.length + '건 남음';
-  }
-  function renderForm() {
-    var sel = document.getElementById('f-eqp');
-    sel.innerHTML = '<option value="">선택</option>' + (S.m.equipment_options || []).map(function (id) { return '<option value="' + esc(id) + '">' + esc(id) + '</option>'; }).join('');
-    document.getElementById('checks').innerHTML = (S.m.checklist || []).map(function (c) {
-      return '<label class="check"><input type="checkbox" name="chk" value="' + esc(c.id) + '"><span>' + esc(c.label) + '</span></label>';
-    }).join('');
-  }
-  function showStep(n) {
-    S.step = n;
-    Array.prototype.forEach.call(document.querySelectorAll('.panel'), function (p) { p.hidden = Number(p.getAttribute('data-step')) !== n; });
-    Array.prototype.forEach.call(document.querySelectorAll('#steps b'), function (b, i) { b.className = i + 1 < n ? 'done' : i + 1 === n ? 'on' : ''; });
-    if (n === 3) {
-      var checked = document.querySelectorAll('input[name="chk"]:checked').length;
-      document.getElementById('confirm').textContent = document.getElementById('f-eqp').value + ' 설비, 점검 항목 ' + checked + '개 확인. 제출하면 되돌릴 수 없다.';
-    }
-  }
-  function validate(step) {
-    if (step === 1) {
-      var ok = !!document.getElementById('f-eqp').value;
-      document.getElementById('e-eqp').hidden = ok;
-      document.getElementById('f-eqp').setAttribute('aria-invalid', ok ? 'false' : 'true');
-      return ok;
-    }
-    if (step === 2) {
-      var ok2 = document.querySelectorAll('input[name="chk"]:checked').length > 0;
-      document.getElementById('e-chk').hidden = ok2;
-      return ok2;
-    }
-    return true;
-  }
-  function load(cb) {
-    var i = 0;
-    if (typeof fetch !== 'function') { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
-    (function next() {
-      if (i >= DATA_URLS.length) { cb(FALLBACK, 'fallback', '내장 샘플'); return; }
-      var u = DATA_URLS[i++];
-      fetch(u, {cache: 'no-store'})
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (d) { cb(d, 'ok', u); })
-        .catch(function () { next(); });
-    })();
-  }
-
-  document.getElementById('btn-open').addEventListener('click', function () {
-    var w = document.getElementById('form-wrap');
-    w.hidden = !w.hidden;
-    this.textContent = w.hidden ? '시작' : '접기';
-    if (!w.hidden) showStep(1);
+  $('start').addEventListener('click', function () { if (M) openSheet(open()[0]); });
+  $('list').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-i]');
+    if (b) openSheet(M.tasks[+b.getAttribute('data-i')]);
   });
-  document.getElementById('form').addEventListener('click', function (ev) {
-    var b = ev.target.closest('[data-next]');
-    if (!b) return;
-    var to = Number(b.getAttribute('data-next'));
-    if (to > S.step && !validate(S.step)) return;
-    showStep(to);
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var miss = this.querySelectorAll('input[name="c"]:not(:checked)').length;
+    if (miss) { $('form-error').textContent = '확인하지 않은 항목이 ' + miss + '개 있습니다'; $('form-error').hidden = false; return; }
+    var task = cur || M.tasks.filter(function (t) { return t.eqp === $('eqp').value && !t.done; })[0];
+    if (task) save(task);
+    closeSheet(); render();
+    K.toast($('eqp').value + ' 점검 완료 저장');
   });
-  document.getElementById('form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    if (!validate(1) || !validate(2)) { showStep(!validate(1) ? 1 : 2); return; }
-    var btn = document.getElementById('btn-submit');
-    btn.disabled = true; btn.textContent = '제출 중';
-    var eqp = document.getElementById('f-eqp').value;
-    setTimeout(function () {
-      (S.m.tasks || []).forEach(function (t) { if (t.eqp === eqp) S.done[t.id] = true; });
-      renderTasks();
-      btn.disabled = false; btn.textContent = '점검 결과 제출';
-      document.getElementById('form').reset();
-      document.getElementById('form-wrap').hidden = true;
-      document.getElementById('btn-open').textContent = '시작';
-      toast(eqp + ' 점검 결과 제출 완료');
-    }, 500);
+  $('cancel').addEventListener('click', closeSheet);
+  $('scrim').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('sheet').hidden) closeSheet(); });
+  document.querySelector('.tabbar').addEventListener('click', function (e) {
+    var a = e.target.closest('a');
+    if (!a) return;
+    this.querySelectorAll('a').forEach(function (x) { x.classList.toggle('on', x === a); if (x === a) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
   });
-  load(function (d, status, src) {
-    try {
-      S.m = d.mobile || FALLBACK.mobile;
-      document.getElementById('app-title').textContent = S.m.title || '설비 점검';
-      renderForm(); renderTasks();
-      setStatus(status, status === 'ok' ? src + ' 로드' : 'data.json 을 읽지 못해 내장 샘플을 보여준다.');
-    } catch (e) { setStatus('failed', '렌더 중 오류: ' + e.message); }
-  });
+  boot();
 })();
 </script>
 </body>

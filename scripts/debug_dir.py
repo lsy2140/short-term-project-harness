@@ -2,20 +2,23 @@
 # -*- coding: utf-8 -*-
 """debug_dir.py — 단계별 디버그 폴더 정책 도구 (표준 라이브러리, Python 3.9).
 
-  python3 scripts/debug_dir.py 01_첫완주               # out/debug/01_첫완주/ 생성(있으면 그대로) + 파일 수·허용 외 이름 보고
-  python3 scripts/debug_dir.py 01_첫완주 --strict      # 5파일 초과·허용 외 이름이 있으면 exit 1
-  python3 scripts/debug_dir.py --check                 # out/debug 전체 표: 폴더별 파일 수·총 파일 수·금지 패턴
-  python3 scripts/debug_dir.py --decisions 02_규칙_tz  # '결정:' 주석을 모아 out/debug/02_규칙_tz/decisions.txt 로 저장
+  python3 scripts/debug_dir.py 01_계약                 # out/debug/01_계약/ 생성(있으면 그대로) + 파일 수·허용 외 이름 보고
+  python3 scripts/debug_dir.py 01_계약 --strict        # 폴더당 5파일 초과·허용 외 이름이 있으면 exit 1
+  python3 scripts/debug_dir.py --check                 # out/debug 전체 표: 폴더별 파일 수·금지 패턴
+  python3 scripts/debug_dir.py --decisions 02_규칙_tz  # '결정:' 주석 목록을 out/debug/02_규칙_tz/verify.json 의 "decisions" 키에 병합
+                                                       #   찾는 곳: src·scripts·tests·app·과제 패키지(__init__.py 가 있는 최상위 폴더, 예 core/)·최상위 .py
 
-한 폴더에 두는 파일은 5종까지: red.txt(먼저 본 FAIL) · green.txt · verify.json(숫자) · decisions.txt · note.md(결정이 필요했던 사항만).
+한 폴더에 두는 파일은 4종: red.txt(먼저 본 FAIL) · green.txt · verify.json(숫자 + "decisions") · note.md(결정이 필요했던 사항만).
+폴더 수·총 파일 수에는 상한이 없다(단계가 늘면 폴더도 는다, 예 01_계약 … 09_동결). 폴더당 5파일 초과는 경고만 낸다.
 금지 패턴: *_before(스냅샷 폴더·파일) · *_protected_before* · chrome_profile · data/ 와 같은 이름의 입력 복사본.
-임시 파일(엣지 입력·셔플 사본·브라우저 프로필)은 .tmp/ 에 둔다. 복구본은 1차 동결 때 preflight --freeze 가 만드는 .tmp/freeze_1/ 뿐이다.
+임시 파일(엣지 입력·셔플 사본·브라우저 프로필)은 .tmp/ 에 둔다. 복구본은 사람이 preflight --freeze 로 만드는 .tmp/freeze_N/ 뿐이다.
 
 exit 0  이상 없음. 경고(폴더당 5 초과·허용 외 이름)는 stderr 에 줄만 내고 0 — --strict 면 1
-exit 1  --check 에서 총 40 초과 또는 금지 패턴 발견 / 잘못된 단계 이름 / 쓰기 실패
+exit 1  금지 패턴 발견 / 잘못된 단계 이름 / verify.json 이 JSON 객체가 아님 / 쓰기 실패
 exit 2  인자 없음(도움말)
 """
 import argparse
+import json
 import os
 import re
 import sys
@@ -27,14 +30,17 @@ except Exception:  # noqa
     pass
 
 DEBUG_REL = os.path.join('out', 'debug')
-ALLOWED = ('red.txt', 'green.txt', 'verify.json', 'decisions.txt', 'note.md')
+ALLOWED = ('red.txt', 'green.txt', 'verify.json', 'note.md')
 MAX_PER_DIR = 5
-MAX_TOTAL = 40
 STAGE_PAT = re.compile(r'^\d{2}_[^\\/\s]+$')
 DECISION_MARK = '결정:'
+DECISION_KEY = 'decisions'
 DECISION_DIRS = ('src', 'scripts', 'tests', 'app')
 SKIP_DIRS = {'__pycache__', '.git', '.tmp', 'node_modules', '.venv', 'venv'}
-SELF = os.path.basename(__file__)
+# 하네스 도구(scripts/ 의 고정 파일과 scripts/tests)의 '결정:' 주석은 과제 결정이 아니다. check_contract.py 는 과제 규칙을 채우므로 센다.
+HARNESS_SCRIPTS = {'status.py', 'preflight.py', 'debug_dir.py', 'decide.py', 'scaffold.py', 'docmap.py',
+                   'smoke_web.py', 'eda_bootstrap.py', 'make_edge_cases.py'}
+HARNESS_TEST_REL = os.path.join('scripts', 'tests')
 
 
 def eprint(msg):
@@ -48,7 +54,7 @@ def debug_root(root):
 
 def validate_stage(stage):
     if not STAGE_PAT.match(stage):
-        raise ValueError('단계 이름은 NN_단계명 형식(예 01_첫완주, 02_규칙_tz)이어야 한다: %r' % stage)
+        raise ValueError('단계 이름은 NN_단계명 형식(예 01_계약, 02_규칙_tz, 09_동결)이어야 한다: %r' % stage)
 
 
 def _rel(path, base):
@@ -95,7 +101,7 @@ def forbidden_reason(name, is_dir, data_set):
 
 def scan(root):
     """out/debug 전체 요약.
-    rows: [(폴더, 파일 수, 허용 외 파일 목록, 금지 건수)] / total / forbidden: [(경로, 사유)] / over: 5 초과 폴더"""
+    rows: [(폴더, 파일 수, 허용 외 파일 목록, 금지 건수)] / total / forbidden: [(경로, 사유)] / over: 폴더당 5 초과 폴더"""
     droot = debug_root(root)
     info = {'exists': os.path.isdir(droot), 'rows': [], 'total': 0, 'forbidden': [], 'over': []}
     if not info['exists']:
@@ -133,33 +139,74 @@ def scan(root):
     return info
 
 
-def collect_decisions(root):
-    """src/scripts/tests/app 아래 .py 와 최상위 .py 에서 '결정:' 이 든 줄을 (상대경로, 줄번호, 내용) 으로 모은다."""
+def decision_dirs(root):
+    """'결정:' 주석을 찾을 폴더(있는 것만). src·scripts·tests·app 과 과제 패키지(최상위 폴더 중 __init__.py 가 있는 것,
+    예 scaffold 의 core/ · --package 로 바꾼 이름) — preflight.py 의 compile 검사와 같은 규칙. 출력: 폴더 이름 목록."""
+    dirs = [d for d in DECISION_DIRS if os.path.isdir(os.path.join(root, d))]
+    dirs += sorted(d for d in os.listdir(root) if d not in dirs and d not in SKIP_DIRS and not d.startswith('.')
+                   and os.path.isfile(os.path.join(root, d, '__init__.py')))
+    return dirs
+
+
+def _decision_targets(root):
     targets = []
-    for d in DECISION_DIRS:
+    for d in decision_dirs(root):
         p = os.path.join(root, d)
-        if not os.path.isdir(p):
-            continue
         for base, dirs, files in os.walk(p):
-            dirs[:] = sorted(x for x in dirs if x not in SKIP_DIRS)
+            rel_base = os.path.normpath(os.path.relpath(base, root))
+            dirs[:] = sorted(x for x in dirs if x not in SKIP_DIRS
+                             and os.path.normpath(os.path.join(rel_base, x)) != HARNESS_TEST_REL)
             for f in sorted(files):
-                if f.endswith('.py'):
-                    targets.append(os.path.join(base, f))
+                if not f.endswith('.py'):
+                    continue
+                if rel_base == 'scripts' and f in HARNESS_SCRIPTS:
+                    continue
+                targets.append(os.path.join(base, f))
     for f in sorted(os.listdir(root)):
         if f.endswith('.py') and os.path.isfile(os.path.join(root, f)):
             targets.append(os.path.join(root, f))
+    return targets
+
+
+def collect_decisions(root):
+    """src/scripts/tests/app·과제 패키지(core/ 등, decision_dirs) 아래 .py 와 최상위 .py 에서 '결정:' 이 든 줄을
+    (상대경로, 줄번호, 내용) 으로 모은다. 하네스 도구(scripts/ 의 고정 파일·scripts/tests)는 뺀다."""
     hits = []
-    for path in targets:
-        if os.path.basename(path) == SELF:  # 이 스크립트의 도움말·상수는 결정이 아니다
-            continue
+    for path in _decision_targets(root):
         try:
             with open(path, 'r', encoding='utf-8', errors='replace') as fh:
                 for i, line in enumerate(fh, 1):
                     if DECISION_MARK in line:
-                        hits.append((_rel(path, root), i, line.rstrip('\r\n')))
+                        hits.append((_rel(path, root), i, line.strip()))
         except OSError:
             continue
     return hits
+
+
+def merge_decisions(verify_path, lines):
+    """verify.json 의 "decisions" 키를 lines 로 바꾸고 다른 키는 그대로 둔다(파일이 없으면 만든다).
+    출력: 병합된 dict. verify.json 이 JSON 객체가 아니면 ValueError(파일은 건드리지 않는다)."""
+    data = {}
+    if os.path.exists(verify_path):
+        with open(verify_path, 'r', encoding='utf-8') as fh:
+            text = fh.read()
+        if text.strip():
+            try:
+                data = json.loads(text)
+            except ValueError:
+                raise ValueError('%s 가 올바른 JSON 이 아니다 — 고친 뒤 다시 실행한다(덮어쓰지 않음)' % verify_path)
+            if not isinstance(data, dict):
+                raise ValueError('%s 의 최상위가 JSON 객체가 아니다 — 고친 뒤 다시 실행한다(덮어쓰지 않음)' % verify_path)
+    data[DECISION_KEY] = list(lines)
+    with open(verify_path, 'w', encoding='utf-8', newline='\n') as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=1)
+        fh.write('\n')
+    return data
+
+
+def _warn_over(path, root, n):
+    eprint('경고: %s 파일 %d개 > %d — 4종(%s) 외 중간 출력은 지우거나 .tmp/ 로 옮긴다'
+           % (_rel(path, root), n, MAX_PER_DIR, ' '.join(ALLOWED)))
 
 
 def cmd_create(root, stage, strict):
@@ -169,18 +216,17 @@ def cmd_create(root, stage, strict):
     os.makedirs(path, exist_ok=True)
     files = list_files(path)
     extra = [f for f in files if f not in ALLOWED]
-    rel = _rel(path, root)
-    print('%s %s · 파일 %d/%d' % (rel, '생성' if created else '있음', len(files), MAX_PER_DIR))
+    print('%s %s · 파일 %d/%d' % (_rel(path, root), '생성' if created else '있음', len(files), MAX_PER_DIR))
     print('허용 파일: ' + ' '.join(ALLOWED))
-    warns = []
+    n_warn = 0
     if len(files) > MAX_PER_DIR:
-        warns.append('%s 파일 %d개 > %d — 5종 외 중간 출력은 지우거나 .tmp/ 로 옮긴다' % (rel, len(files), MAX_PER_DIR))
+        _warn_over(path, root, len(files))
+        n_warn += 1
     if extra:
-        warns.append('허용 외 파일 %d개: %s' % (len(extra), ', '.join(extra[:10])))
-    for w in warns:
-        eprint('경고: ' + w)
-    if warns and strict:
-        eprint('--strict: 경고 %d건 → exit 1' % len(warns))
+        eprint('경고: 허용 외 파일 %d개: %s' % (len(extra), ', '.join(extra[:10])))
+        n_warn += 1
+    if n_warn and strict:
+        eprint('--strict: 경고 %d건 → exit 1' % n_warn)
         return 1
     return 0
 
@@ -193,11 +239,11 @@ def cmd_check(root, strict):
     print('%-28s %5s %6s %5s' % ('폴더', '파일', '허용외', '금지'))
     print('-' * 64)
     for name, n, extra, nf in info['rows']:
-        flag = '  <- %d 초과' % MAX_PER_DIR if n > MAX_PER_DIR else ''
+        flag = '  <- %d 초과(경고)' % MAX_PER_DIR if n > MAX_PER_DIR else ''
         print('%-28s %5d %6d %5d%s' % (name, n, len(extra), nf, flag))
     print('-' * 64)
     n_stage = sum(1 for r in info['rows'] if r[0] != '(루트)')
-    print('%-28s %5d %6s %5d   (총 파일 상한 %d)' % ('합계 %d폴더' % n_stage, info['total'], '', len(info['forbidden']), MAX_TOTAL))
+    print('%-28s %5d %6s %5d' % ('합계 %d폴더' % n_stage, info['total'], '', len(info['forbidden'])))
     for p, reason in info['forbidden']:
         print('  금지: %s  (%s)' % (p, reason))
     warns = []
@@ -208,18 +254,15 @@ def cmd_check(root, strict):
         warns.append('폴더당 %d 초과: %s' % (MAX_PER_DIR, ', '.join(info['over'])))
     for w in warns:
         eprint('경고: ' + w)
-    problems = []
-    if info['total'] > MAX_TOTAL:
-        problems.append('총 %d파일 > %d' % (info['total'], MAX_TOTAL))
     if info['forbidden']:
-        problems.append('금지 패턴 %d건' % len(info['forbidden']))
-    if problems:
-        print('RESULT: exit 1 — %s → 스냅샷·복사본은 지우고(복구본은 preflight --freeze 의 .tmp/freeze_1/ 만), 임시물은 .tmp/ 로' % '; '.join(problems))
+        print('RESULT: exit 1 — 금지 패턴 %d건 → 스냅샷·복사본은 지우고(복구본은 preflight --freeze 의 .tmp/freeze_N/ 만), 임시물은 .tmp/ 로'
+              % len(info['forbidden']))
         return 1
     if strict and warns:
         print('RESULT: exit 1 — --strict: 경고 %d건' % len(warns))
         return 1
-    print('RESULT: exit 0 — 총 %d파일(상한 %d), 금지 패턴 없음' % (info['total'], MAX_TOTAL))
+    print('RESULT: exit 0 — %d폴더 %d파일, 금지 패턴 없음%s'
+          % (n_stage, info['total'], (' (경고 %d건은 stderr)' % len(warns)) if warns else ''))
     return 0
 
 
@@ -228,23 +271,25 @@ def cmd_decisions(root, stage):
     hits = collect_decisions(root)
     path = os.path.join(debug_root(root), stage)
     os.makedirs(path, exist_ok=True)
-    out = os.path.join(path, 'decisions.txt')
-    with open(out, 'w', encoding='utf-8', newline='\n') as fh:
-        for rel, i, line in hits:
-            fh.write('%s:%d:%s\n' % (rel, i, line))
-    print('%s ← %r %d줄 (%s, 최상위 .py)' % (_rel(out, root), DECISION_MARK, len(hits), '/'.join(DECISION_DIRS)))
+    verify = os.path.join(path, 'verify.json')
+    merge_decisions(verify, ['%s:%d:%s' % (rel, i, line) for rel, i, line in hits])
+    scanned = decision_dirs(root)
+    print('%s ← "%s" 키 %d줄 (%r 주석을 찾은 곳: %s최상위 .py · 하네스 도구 제외)'
+          % (_rel(verify, root), DECISION_KEY, len(hits), DECISION_MARK,
+             ''.join(d + '/ · ' for d in scanned)))
     n = len(list_files(path))
     if n > MAX_PER_DIR:
-        eprint('경고: %s 파일 %d개 > %d — 5종 외 중간 출력은 지우거나 .tmp/ 로 옮긴다' % (_rel(path, root), n, MAX_PER_DIR))
+        _warn_over(path, root, n)
     return 0
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('stage', nargs='?', help='단계 폴더 이름 NN_단계명 (예 01_첫완주) → out/debug/NN_단계명/ 생성·점검')
+    ap.add_argument('stage', nargs='?', help='단계 폴더 이름 NN_단계명 (예 01_계약) → out/debug/NN_단계명/ 생성·점검')
     ap.add_argument('--check', action='store_true',
-                    help='out/debug 전체 점검(폴더별 파일 수·총 파일 수·금지 패턴). 총 %d 초과 또는 금지 패턴이면 exit 1' % MAX_TOTAL)
-    ap.add_argument('--decisions', metavar='NN_단계명', help="'결정:' 주석을 모아 out/debug/NN_단계명/decisions.txt 로 저장")
+                    help='out/debug 전체 점검(폴더별 파일 수·금지 패턴). 금지 패턴이 있을 때만 exit 1')
+    ap.add_argument('--decisions', metavar='NN_단계명',
+                    help="'결정:' 주석 목록을 out/debug/NN_단계명/verify.json 의 \"decisions\" 키에 병합(없으면 생성)")
     ap.add_argument('--strict', action='store_true', help='경고(폴더당 %d 초과·허용 외 이름)도 exit 1' % MAX_PER_DIR)
     ap.add_argument('--root', default='.', help='과제 폴더(기본 현재 폴더)')
     args = ap.parse_args(argv)

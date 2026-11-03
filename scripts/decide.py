@@ -2,19 +2,25 @@
 # -*- coding: utf-8 -*-
 """decide.py — 결정 대기함(decisions/pending.md)을 브라우저 폼으로 답하고 answers.md 에 기록한다 (표준 라이브러리, Python 3.9).
 
-  python3 scripts/decide.py                 # 0.0.0.0:$PORT(기본 8010) 에 폼. 웹 IDE 미리보기에서 그 포트를 연다
-  python3 scripts/decide.py --port 8011     # 포트 지정(PORT 환경변수보다 우선)
+  python3 scripts/decide.py                 # 0.0.0.0:8010 에 폼. 미리보기에서 8010 을 연다(PORT 환경변수는 보지 않는다 — 앱 8000 과 겹치지 않게)
+  python3 scripts/decide.py --port 8011     # 포트 지정(8010 이 막혔을 때)
   python3 scripts/decide.py --list          # 미답 항목 표만 터미널에 (서버 없음)
+  python3 scripts/decide.py --apply         # answers.md 의 답(손으로 쓴 줄·복수 ID 포함)을 pending.md 의 고른 후보 [x] 로 옮긴다 (서버 없음)
   python3 scripts/decide.py --dry-run       # pending.md 파싱 결과를 JSON 으로 (서버 없음)
 
 동작  GET /            미답(`- [ ]`) 항목마다 제목·영향·담당자 확인(필요하면 담당자 질문)·후보 라디오(기타는 텍스트 칸)·메모. 답한 항목은 '답변됨' 으로 접어 보인다.
+                       제목에 '(예시' 가 든 견본 항목은 세지도 띄우지도 않는다(status.py 와 같은 규칙).
+                       answers.md 에 답이 있는데 pending 에 [x] 가 없는 항목은 위쪽 카드에 모으고(옮기기 버튼) 그 항목 카드에도 표시한다.
       POST /answer     answers.md 에 `D07: A (메모: …) @HH:MM` 한 줄 append + pending.md 의 그 후보를 `[x]` 로(다른 줄은 그대로).
+      POST /apply      answers.md 의 답을 pending.md 의 고른 후보 `[x]` 로 옮긴다(--apply 와 같음). 다른 후보가 이미 [x] 면 충돌로 알리고 바꾸지 않는다.
       GET /design-kit/ design-kit 의 *.css 만 정적 제공(tokens·base·components).
 거부  없는 ID·빈 선택·이미 답한 항목·폼이 아닌 본문 → 400 과 메시지 / 루트 밖 경로(..) → 403 / 64KB 넘는 본문 → 413.
 형식  pending.md 항목(AGENTS.md 5절): `## D07 제목   (영향: … | 담당자 확인: 필요)` + `- [ ] A. 후보 — 근거 (추천)` 2~4개 + `담당자 질문: …`(필요할 때) + `메모:`.
       결정은 항상 사람이 한다 — 기본값·시간 경과로 대신 정하는 필드는 없다(옛 형식의 `기본값`·`안 정하면` 은 읽고 무시한다).
-종료 코드  0 정상 / 1 pending.md 없음·포트 열기 실패 / 2 인자 오류.
-순수 함수  parse_pending · parse_answers · format_answer_line · append_answer · mark_answered (파일을 만지지 않는다; scripts/tests/test_decide.py 가 검증).
+      answers.md 한 줄에 복수 ID `D12,D71: A (메모: …) @HH:MM` 도 읽는다(각 ID 에 같은 답). 폼은 항목마다 한 줄씩 쓴다.
+종료 코드  0 정상 / 1 pending.md 없음·포트 열기 실패·--apply 충돌 또는 오류 / 2 인자 오류.
+순수 함수  parse_pending · parse_answers · format_answer_line · append_answer · mark_answered · apply_answers
+          (파일을 만지지 않는다; scripts/tests/test_decide.py 가 검증).
 """
 import argparse
 import datetime as dt
@@ -39,12 +45,14 @@ DEFAULT_PENDING = os.path.join(ROOT, 'decisions', 'pending.md')
 DEFAULT_ANSWERS = os.path.join(ROOT, 'decisions', 'answers.md')
 DEFAULT_KIT = os.path.join(ROOT, 'design-kit')
 DEFAULT_PORT = 8010
+EXAMPLE_MARK = '(예시'   # 제목에 이 표시가 든 항목은 형식 견본 — 미답·폼·목록에서 뺀다(status.py 와 같은 규칙)
 # 결정: 본문 상한 64KB / 메모 500자·기타 200자면 충분하고 실수로 파일을 올리는 사고를 막는다 / 무제한
 MAX_BODY = 64 * 1024
 ANSWERS_HEADER = (
-    '# 결정 답변 (answers) — 사람이 쓰고 Codex 가 매 턴 시작에 읽는다\n'
-    '형식: `D07: A (메모: …) @HH:MM` 한 줄 = 답 하나 (기타를 고르면 `D07: C (기타: 내용) (메모: …) @HH:MM`). '
-    'decide.py 가 append 하고 손으로 써도 된다. Codex 는 새 줄을 반영한 뒤 pending.md 에 `[x] 반영 HH:MM` 로 표시한다.\n'
+    '# 결정 답변 (answers) — 사람이 쓰고 Codex 가 task 끝·CP 에서 읽는다\n'
+    '형식: `D07: A (메모: …) @HH:MM` 한 줄 = 답 하나 (복수 ID `D12,D71: A (메모: …) @HH:MM` 는 각 ID 에 같은 답, '
+    '기타를 고르면 `D07: C (기타: 내용) (메모: …) @HH:MM`). '
+    'decide.py 가 append 하고 손으로 써도 된다. 손으로 쓴 줄은 `decide.py --apply` 로 pending 의 고른 후보에 `[x]` 를 옮기고, Codex 는 반영한 뒤 그 후보 줄을 `- [x] A. … 반영 HH:MM` 으로 바꾼다(별도 줄 금지).\n'
 )
 
 ID_RE = re.compile(r'^## (D\d+)\b\s*(.*?)\s*$')
@@ -55,7 +63,7 @@ RECOMMEND_RE = re.compile(r'\s*\(추천\)\s*')
 OTHER_RE = re.compile(r'^기타\s*[:：]?\s*(.*)$')
 MEMO_RE = re.compile(r'^메모:\s*(.*?)\s*$')
 QUESTION_RE = re.compile(r'^담당자 질문:\s*(.*?)\s*$')
-ANSWER_RE = re.compile(r'^(D\d+):\s*(\S+)(?:\s+\(기타:\s*(.*?)\))?(?:\s+\(메모:\s*(.*?)\))?\s*@(\d\d:\d\d)\s*$')
+ANSWER_RE = re.compile(r'^(D\d+(?:\s*,\s*D\d+)*):\s*(\S+)(?:\s+\(기타:\s*(.*?)\))?(?:\s+\(메모:\s*(.*?)\))?\s*@(\d\d:\d\d)\s*$')
 
 
 # ---------------------------------------------------------------- 순수 함수: 파싱
@@ -125,17 +133,41 @@ def parse_pending(text):
 
 
 def parse_answers(text):
-    """answers.md 본문 → {id: {choice, other, memo, time}}. 같은 ID 가 여러 줄이면 마지막 줄이 이긴다."""
+    """answers.md 본문 → {id: {choice, other, memo, time}}. 같은 ID 가 여러 줄이면 마지막 줄이 이긴다.
+    한 줄에 복수 ID(`D12,D71: A (메모: …) @HH:MM`)면 각 ID 에 같은 답을 따로 넣는다."""
     out = {}
     for raw in (text or '').split('\n'):
         m = ANSWER_RE.match(raw.strip())
         if m:
-            out[m.group(1)] = {'choice': m.group(2), 'other': m.group(3) or '', 'memo': m.group(4) or '', 'time': m.group(5)}
+            for item_id in re.split(r'\s*,\s*', m.group(1)):
+                out[item_id] = {'choice': m.group(2), 'other': m.group(3) or '', 'memo': m.group(4) or '', 'time': m.group(5)}
     return out
 
 
+def is_example(it):
+    """제목에 '(예시' 가 든 형식 견본 항목인가. 견본은 세지도 폼에 띄우지도 않는다(status.py 와 같은 규칙)."""
+    return EXAMPLE_MARK in (it.get('title') or '')
+
+
 def unanswered(items):
-    return [it for it in items if not it['answered']]
+    """고른 후보(`[x]`)가 없는 항목. 예시 항목은 뺀다."""
+    return [it for it in items if not it['answered'] and not is_example(it)]
+
+
+def answered_items(items):
+    """고른 후보가 있는 항목. 예시 항목은 뺀다."""
+    return [it for it in items if it['answered'] and not is_example(it)]
+
+
+def waiting_answers(items, answers):
+    """answers.md 에 답이 있는데 pending 에 [x] 가 없는 미답 항목 → [(항목, 답 dict)] (pending 순서)."""
+    return [(it, answers[it['id']]) for it in unanswered(items) if it['id'] in (answers or {})]
+
+
+def answer_text(item_id, ans):
+    """answers.md 답 dict → 'D01: A (기타: …) @11:40' 한 줄(표시용)."""
+    other = (' (기타: %s)' % ans['other']) if ans.get('other') else ''
+    return '%s: %s%s @%s' % (item_id, ans.get('choice', ''), other, ans.get('time', ''))
 
 
 def find_item(items, item_id):
@@ -209,6 +241,43 @@ def mark_answered(pending_text, item_id, choice, other=''):
     return '\n'.join(lines)
 
 
+def apply_answers(pending_text, answers):
+    """answers.md 의 답(parse_answers 결과)을 pending 본문의 고른 후보 `[x]` 로 옮긴 새 본문과 결과를 돌려준다(파일은 만지지 않는다).
+    같은 후보가 이미 `[x]` 면 건너뛰고(same), 다른 후보가 `[x]` 면 충돌(conflict)로 남기고 바꾸지 않는다.
+    없는 ID·없는 후보·기타 내용 없음은 error. 옮긴 줄은 폼의 기록과 같은 모양(`- [x] A. …`)이다 — `반영 HH:MM` 은 Codex 가 붙인다.
+    출력: (새 본문, {'applied': [(id, 후보)], 'same': [id], 'conflict': [(id, pending 답, answers 답)], 'error': [(id, 메시지)]})"""
+    text = pending_text
+    res = {'applied': [], 'same': [], 'conflict': [], 'error': []}
+    order = [it['id'] for it in parse_pending(text)]
+    ids = [i for i in order if i in answers] + sorted(i for i in answers if i not in order)
+    for item_id in ids:
+        ans = answers[item_id]
+        try:
+            item = find_item(parse_pending(text), item_id)
+            if item['answered']:
+                if item['answer'] == ans['choice']:
+                    res['same'].append(item_id)
+                else:
+                    res['conflict'].append((item_id, item['answer'], ans['choice']))
+                continue
+            text = mark_answered(text, item_id, ans['choice'], ans.get('other', ''))
+        except ValueError as e:
+            res['error'].append((item_id, str(e)))
+            continue
+        res['applied'].append((item_id, ans['choice']))
+    return text, res
+
+
+def summarize_apply(res):
+    """apply_answers 결과 → (한 줄 요약, 충돌·오류 줄 목록)."""
+    moved = ', '.join('%s=%s' % kv for kv in res['applied'])
+    head = '옮김 %d건%s · 이미 같음 %d · 충돌 %d · 오류 %d' % (
+        len(res['applied']), (' (%s)' % moved) if moved else '', len(res['same']), len(res['conflict']), len(res['error']))
+    problems = ['충돌 %s: pending [x] %s · answers.md %s → 한쪽을 고친 뒤 다시 옮긴다' % c for c in res['conflict']]
+    problems += ['오류 %s: %s' % e for e in res['error']]
+    return head, problems
+
+
 # ---------------------------------------------------------------- 파일 I/O
 _LOCK = threading.Lock()
 
@@ -234,6 +303,18 @@ def record_answer(pending_path, answers_path, item_id, choice, other='', memo=''
         write_text(pending_path, new_pending)
         write_text(answers_path, new_answers)
     return new_answers.rstrip('\n').split('\n')[-1]
+
+
+def apply_file(pending_path, answers_path):
+    """answers.md 를 읽어 pending.md 의 고른 후보를 [x] 로 옮긴다(폼 기록과 같은 잠금). 바뀐 것이 있을 때만 pending 을 쓴다.
+    출력: apply_answers 의 결과 dict. answers.md 는 바꾸지 않는다."""
+    with _LOCK:
+        pending = read_text(pending_path)
+        answers = parse_answers(read_text(answers_path)) if os.path.exists(answers_path) else {}
+        new_pending, res = apply_answers(pending, answers)
+        if new_pending != pending:
+            write_text(pending_path, new_pending)
+    return res
 
 
 # ---------------------------------------------------------------- 화면 (design-kit 토큰만, 외부 URL 0, JS 0)
@@ -271,7 +352,8 @@ def _kv(label, value):
     return '<dt>%s</dt><dd>%s</dd>' % (e(label), e(value) if value else '-')
 
 
-def render_form(it):
+def render_form(it, ans=None):
+    """미답 항목 카드. ans(answers.md 의 이 항목 답)가 있으면 '반영 전' 표시를 붙인다."""
     e = html.escape
     iid = it['id']
     h = ['<section class="card" aria-labelledby="h-%s">' % e(iid),
@@ -280,6 +362,8 @@ def render_form(it):
          '<h2 id="h-%s"><span class="id">%s</span> %s</h2>' % (e(iid), e(iid), e(it['title']) or '(제목 없음)'),
          '<dl class="kv">' + _kv('영향', it['impact']) + _kv('담당자 확인', it['ask']) + '</dl>',
          ('<div class="banner info"><b>담당자에게 먼저 물어보기</b><span>%s</span></div>' % e(it['question'])) if it['question'] else '',
+         ('<div class="banner warn"><b>answers.md 에 답 있음</b><span>%s — pending 에는 아직 [x] 가 없다. 같은 답이면 위의 '
+          '옮기기 버튼을 누른다. 여기서 다른 답을 고르면 새 줄이 쌓이고 나중 줄이 이긴다.</span></div>' % e(answer_text(iid, ans))) if ans else '',
          '<fieldset class="field"><legend class="label">후보 (하나를 고른다)</legend><div class="choices">']
     has_other = False
     for c in it['candidates']:
@@ -325,19 +409,26 @@ def render_page(items, answers=None, notice=None):
     """items(parse_pending) + answers(parse_answers) → HTML 문자열. notice=(kind, message) 는 상단 배너."""
     e = html.escape
     answers = answers or {}
-    open_items, done_items = unanswered(items), [it for it in items if it['answered']]
+    open_items, done_items = unanswered(items), answered_items(items)
+    waiting = waiting_answers(items, answers)
     h = [PAGE_HEAD, '<main class="container narrow">',
          '<header class="hdr"><div class="row between"><h1>결정 대기함</h1><a class="btn sm" href="/">다시 읽기</a></div>',
-         '<p class="lead">decisions/pending.md 의 미답 항목에 답한다. 기록하면 answers.md 에 한 줄이 쌓이고 Codex 가 다음 턴에 읽는다. '
+         '<p class="lead">decisions/pending.md 의 미답 항목에 답한다. 기록하면 answers.md 에 한 줄이 쌓이고 Codex 가 task 끝·CP 에서 읽는다. '
          '결정은 항상 사람이 하며 Codex 는 답이 올 때까지 이 결정에 기대는 작업을 하지 않는다. 파란 상자가 있는 항목은 담당자에게 그 질문을 먼저 보내고 답을 메모에 적는다.</p>',
          '<p class="meta">미답 %d건 · 답변됨 %d건 · 파일 decisions/pending.md</p></header>' % (len(open_items), len(done_items))]
     if notice:
         kind, msg = notice
         head = {'ok': '기록됨', 'bad': '기록 안 됨'}.get(kind, '알림')
         h.append('<div class="banner %s" role="status"><b>%s</b><span>%s</span></div>' % (e(kind), e(head), e(msg)))
+    if waiting:
+        h.append('<section class="card" aria-labelledby="h-apply" style="margin-top: var(--s-4)">'
+                 '<form class="form" method="post" action="/apply"><h2 id="h-apply">answers.md 에 답이 있는 미답 %d건</h2>'
+                 '<p class="meta">%s — pending.md 의 고른 후보를 [x] 로 옮긴다(answers.md 는 그대로, 손으로 쓴 줄·복수 ID 줄 포함).</p>'
+                 '<div class="btn-row"><button class="btn brand" type="submit">pending 에 옮기기</button></div></form></section>'
+                 % (len(waiting), e(', '.join('%s=%s' % (it['id'], a['choice']) for it, a in waiting))))
     if open_items:
         h.append('<div class="stack" style="margin-top: var(--s-4)">')
-        h.extend(render_form(it) for it in open_items)
+        h.extend(render_form(it, answers.get(it['id'])) for it in open_items)
         h.append('</div>')
     else:
         h.append('<div class="empty" style="margin-top: var(--s-4)"><b>미답 항목이 없습니다</b>'
@@ -401,6 +492,16 @@ class DecideHandler(http.server.BaseHTTPRequestHandler):
         with open(full, 'rb') as fh:
             self._send(200, fh.read(), 'text/css; charset=utf-8')
 
+    def _apply(self):
+        cfg = self.server.cfg
+        try:
+            res = apply_file(cfg['pending'], cfg['answers'])
+        except OSError as e:
+            return self._text(500, '파일을 쓰지 못함: %s — decisions/ 폴더 권한을 확인한다' % e)
+        head, problems = summarize_apply(res)
+        kind = 'ok' if not problems else ('warn' if res['applied'] else 'bad')
+        self._page(200, (kind, ' / '.join([head] + problems)))
+
     def do_GET(self):
         path = clean_path(self.path)
         if path is None:
@@ -415,8 +516,8 @@ class DecideHandler(http.server.BaseHTTPRequestHandler):
         path = clean_path(self.path)
         if path is None:
             return self._text(403, '루트 밖 경로는 열 수 없다: %s' % self.path)
-        if path not in ('/', '/answer'):
-            return self._text(404, '없는 경로: %s — 답은 POST /answer 로 보낸다' % path)
+        if path not in ('/', '/answer', '/apply'):
+            return self._text(404, '없는 경로: %s — 답은 POST /answer, answers.md 옮기기는 POST /apply 로 보낸다' % path)
         try:
             length = int(self.headers.get('Content-Length') or '0')
         except ValueError:
@@ -424,6 +525,8 @@ class DecideHandler(http.server.BaseHTTPRequestHandler):
         if length > MAX_BODY:
             return self._text(413, '본문이 너무 큼: %d bytes (상한 %d) — 메모를 줄인다' % (length, MAX_BODY))
         body = self.rfile.read(length).decode('utf-8', 'replace') if length > 0 else ''
+        if path == '/apply':
+            return self._apply()
         ctype = self.headers.get('Content-Type', '')
         if 'application/x-www-form-urlencoded' not in ctype.lower():
             return self._page(400, ('bad', '폼 본문이 아님(Content-Type=%s) — 페이지의 폼으로 보낸다' % (ctype or '없음')))
@@ -440,7 +543,7 @@ class DecideHandler(http.server.BaseHTTPRequestHandler):
         except OSError as e:
             return self._text(500, '파일을 쓰지 못함: %s — decisions/ 폴더 권한을 확인한다' % e)
         # 결정: 기록 후 같은 응답에 페이지(200) / 미리보기에서 리다이렉트 1회를 아끼고 결과 배너를 바로 본다 / 303 리다이렉트
-        self._page(200, ('ok', '%s 를 decisions/answers.md 에 적었다. Codex 가 다음 턴에 반영한다.' % line))
+        self._page(200, ('ok', '%s 를 decisions/answers.md 에 적었다. Codex 가 task 끝·CP 에서 반영한다.' % line))
 
 
 def make_server(host, port, pending_path, answers_path, kit_dir):
@@ -453,9 +556,10 @@ def make_server(host, port, pending_path, answers_path, kit_dir):
 
 
 # ---------------------------------------------------------------- 터미널 출력
-def print_list(items):
+def print_list(items, answers=None):
+    answers = answers or {}
     rows = unanswered(items)
-    done = len(items) - len(rows)
+    done = len(answered_items(items))
     if not rows:
         print('미답 항목 없음 (답변됨 %d건)' % done)
         return
@@ -465,37 +569,50 @@ def print_list(items):
         print(' | '.join([it['id'], it['title'] or '-', it['impact'] or '-', it['ask'] or '-', cands or '-']))
         if it['question']:
             print('   └ 담당자 질문: %s' % it['question'])
-    print('미답 %d건 · 답변됨 %d건' % (len(rows), done))
+        if it['id'] in answers:
+            print('   └ answers.md 에 답 있음: %s → pending 반영 전(python3 scripts/decide.py --apply)'
+                  % answer_text(it['id'], answers[it['id']]))
+    n_wait = sum(1 for it in rows if it['id'] in answers)
+    print('미답 %d건 · 답변됨 %d건%s' % (len(rows), done, (' · answers.md 에 답 있음 %d건(--apply 로 옮긴다)' % n_wait) if n_wait else ''))
 
 
 def main():
     ap = argparse.ArgumentParser(description='결정 대기함 폼 서버 (decisions/pending.md ↔ answers.md)',
                                  epilog='서버는 Ctrl+C 로 끝낸다. 답은 answers.md 에 쌓이고 pending.md 의 후보가 [x] 로 바뀐다.')
-    ap.add_argument('--port', type=int, default=None, help='포트 (기본: PORT 환경변수, 없으면 %d)' % DEFAULT_PORT)
+    ap.add_argument('--port', type=int, default=DEFAULT_PORT,
+                    help='포트 (기본 %d — PORT 환경변수는 보지 않는다: 앱 서버 8000 과 겹치지 않게)' % DEFAULT_PORT)
     ap.add_argument('--host', default='0.0.0.0', help='바인드 주소 (기본 0.0.0.0)')
     ap.add_argument('--pending', default=DEFAULT_PENDING, help='pending.md 경로 (기본 decisions/pending.md)')
     ap.add_argument('--answers', default=DEFAULT_ANSWERS, help='answers.md 경로 (기본 decisions/answers.md, 없으면 만든다)')
     ap.add_argument('--kit', default=DEFAULT_KIT, help='design-kit 폴더 (CSS 정적 제공, 기본 design-kit/)')
     ap.add_argument('--list', action='store_true', help='미답 항목 표만 출력하고 끝낸다')
+    ap.add_argument('--apply', action='store_true',
+                    help='answers.md 의 답(손으로 쓴 줄·복수 ID 포함)을 pending.md 의 고른 후보 [x] 로 옮기고 끝낸다(충돌·오류면 exit 1)')
     ap.add_argument('--dry-run', action='store_true', help='pending.md 파싱 결과를 JSON 으로 출력하고 끝낸다')
     a = ap.parse_args()
     if not os.path.isfile(a.pending):
         print('pending.md 없음: %s — Codex 에게 결정 항목을 적게 하거나 decisions/pending.md 를 만든다' % a.pending, file=sys.stderr)
         return 1
+    if a.apply:
+        head, problems = summarize_apply(apply_file(a.pending, a.answers))
+        print('apply: ' + head)
+        for line in problems:
+            print('  ' + line)
+        return 1 if problems else 0
     items = parse_pending(read_text(a.pending))
     if a.dry_run:
         print(json.dumps(items, ensure_ascii=False, indent=2))
         return 0
     if a.list:
-        print_list(items)
+        print_list(items, parse_answers(read_text(a.answers)) if os.path.exists(a.answers) else {})
         return 0
-    port = a.port if a.port is not None else int(os.environ.get('PORT', str(DEFAULT_PORT)))
+    port = a.port
     try:
         srv = make_server(a.host, port, a.pending, a.answers, a.kit)
     except OSError as e:
         print('포트 %d 를 열지 못함: %s — 다른 --port 를 쓰거나 점유한 프로세스를 끝낸다' % (port, e), file=sys.stderr)
         return 1
-    print('decide: %s (미답 %d · 답변됨 %d)' % (a.pending, len(unanswered(items)), len(items) - len(unanswered(items))), flush=True)
+    print('decide: %s (미답 %d · 답변됨 %d)' % (a.pending, len(unanswered(items)), len(answered_items(items))), flush=True)
     print('http://%s:%d/  (local: http://127.0.0.1:%d/)  Ctrl+C 로 종료' % (a.host, port, port), flush=True)
     try:
         srv.serve_forever()

@@ -1,71 +1,172 @@
-# RUN — 180분 운영표
+# RUN — 240분 운영 카드 (사람 전용 · 스크립트는 읽지 않음)
 
-`python3 scripts/next.py` 가 TASK.md 머리의 `시작: HH:MM` 기준으로 **지금 구간·규칙 진행·다음 추천 3개·대기 중 할 일**을 찍고, Codex 의 모든 보고 꼬리 3줄이 이것을 인용한다(AGENTS.md 7절). 시작이 늦어지면 **제출 마감 시각에서 역산**해 압축한다(마감 시각은 시작 화면 안내대로 TASK.md 1번에 적는다).
+- Codex·스크립트는 이 파일을 읽지 않는다. 분 숫자는 '참고' 열 괄호 안 참고치뿐이다.
+- 시계는 `python3 scripts/status.py` 가 남은 분을 표시만 한다. 행동은 사람이 체크포인트(CP)에서 고른다.
+- Codex 에게 쓰지 않는 말: '병렬'·'하위 에이전트'(대화 전체를 포크한다). 창은 사람이 직접 연다.
+- 붙여넣을 글: `docs/prompts.md`(예시 26개) · `docs/stakeholder_interview.md`(질문 묶음·PRD 검토 요청 5줄).
+- 심사·정리용 글: `docs/judge_simulation.md` · `docs/implementation_summary.md`. 처음 보는 말은 8절 용어표.
 
-| 경과 | 구간 | 할 일 | 끝날 때 확인 | 대기 중 사람이 할 일 |
+| 창 | 역할 |
+|---|---|
+| T0 | 셸(사람 명령: scaffold·preflight·status·결정 폼. 서버는 Codex 가 띄우고 포트를 보고) |
+| T1 | Codex A_core = 메인(`$kickoff`·`$prd`·`$plan` 도 여기, PRD.md 는 여기서만 쓴다) |
+| T2 · T3 | Codex B_web · C_verify(같은 폴더에서 `codex`) |
+| T4 | 심사 1회(`codex -s read-only`) |
+| M | 메신저(담당자·도우미) |
+
+- 기본은 A+B, C 는 A·B 첫 task 가 green 이 된 뒤. 창은 최대 5 + 메신저.
+- 창 하나로 할 때(1세션 폴백): PLAN 4번 표 담당 열을 전부 A, T2·T3 는 열지 않는다. CP1(필수 출력이 올바른 헤더로 = 0점 아님)은 같다.
+- 사람은 창 사이의 신호 전달자다: 한 창 보고의 `연결 N` → PLAN 4-2 연결 표 그 행 → 받는 창에 prompts 14.
+
+## 1. 사전 체험 카드
+
+| # | 확인 | 행동·명령(창) | 끝 신호 | 참고 |
 |---|---|---|---|---|
-| -20 | 접속 | 규정 동의 → 웹캠 → 전체 화면 공유 → Proctor 연결 | 감독 4항목 연결 | |
-| -15 | 사전 체험 | ① README 열고 새 파일 생성→저장 상태 갱신 확인 ② 터미널 `python3 -V; git --version; node -v`, `python3 scripts/recon.py` 주의할 점 메모 ③ `python3 -m http.server 3000 --bind 0.0.0.0` 띄우고 미리보기 탭에 포트 3000·경로 `/` 입력→접속 확인 후 종료 ④ 메신저(도우미 봇·업무 담당자) 위치·전송 확인 ⑤ `codex`→`/status`·`/model`(Sol 6.1) ⑥ `git clone` 하네스(안 되면 Plan C) ⑦ 상단 제출 버튼 위치 확인, `ls /opt/ms-playwright` ⑧ Node ≥18 이면 `node .agents/skills/archify/bin/archify.mjs doctor`(실패하면 flowmap 만) | 하네스 사용 가능 여부 확정 | |
-| 0 | 시작 | 녹화 시작 → 휴대폰 거치 → 신분증·안경 검사 → README 정독 (**코드 금지**) · 하네스 복사 5분 이내 · **TASK.md 머리에 `시작: HH:MM`** | 한 문장 목표 | README 두 번째 정독, 제출 파일명·형식 메모 |
-| 0–10 | 읽기 | 파일 목록·데이터 형식·제출물·평가 기준. P0 10항목. `eda_bootstrap.py`로 데이터 첫 파악 | 제출 파일명·형식 메모 | P0 체크 표시, eda_summary 를 내 말로 3줄 번역 |
-| 10–30 | 계약·인터뷰 | TASK.md 1~5 → 담당자 질문 **5~8개(번호, 한 주제 한 질문)** → 답변을 `답변 N:` 으로 돌려주기 → DECISIONS.md 0번 합의문 → 담당자 확인 | 합의문 확인됨 | 담당자 창 왕복, 되묻기 후보 2개 준비, 합의문을 소리 내어 읽기 |
-| 30–63 | 첫 완주 | `python3 scripts/scaffold.py --stages <PLAN 단계들>` 뼈대로 가장 작은 end-to-end. 출력 파일 생성·형식 확인·`scripts/debug_dir.py 01_첫완주` 로 첫 기록. 웹 과제는 30분 안에 템플릿 복사→더미 렌더→미리보기 확인 | 뭔가 하나가 실제로 돈다 | `decisions/pending.md` 답하기(`decide.py`), 보고서 세션에 `$stage-report 1` 요청 → `out/report/` 확인, 담당자 추가 질문 1개 |
-| 63–110 | 규칙·검증 | 규칙 1개 = 테스트 1개(먼저 FAIL 확인) → 구현 → PASS → 발동 건수 확인 → 디버그 폴더 기록. `unittest`와 `check_contract.py` 짝으로. **80분 이후 새 접근(라이브러리·구조 변경) 금지** | TASK.md 5번 상태 PASS 증가 | DECISIONS 4번·debug 폴더 note.md 가 '무엇·왜'인지 확인, 보고서 세션에 끝난 단계 묶음(예 1-3) 보고서 요청 → 차트·숫자·샘플 검증, HUMAN_CHECK 화면, 종합정리 핵심 ① 상충 조건을 내 말로 메모 |
-| 110–120 | **1차 동결** | 지금 제출해도 되는 상태: preflight exit 0 + check_contract + README 실행 명령 실제 실행 + TASK 가정 동기화 + `preflight.py --freeze`(복구본 `.tmp/freeze_1/`·tests 해시) | 여기서 끝나도 점수가 나온다 | 제출 체크 앞 절반 표시, 종합정리 핵심 ② 가장 위험한 실패를 내 말로 메모 |
-| 120–130 | 규칙 계속 | 설명할 수 있는 것만 추가 | | 종합정리 핵심 ③ Codex 를 믿지 않은 지점을 내 말로 메모, `decisions/` 미답 항목 0 확인 |
-| 130–144 | 점검 | `preflight.py --require ...` FAIL 0, **심사자 시뮬레이션 1회**(docs/judge_simulation.md, 별도 read-only 세션) → 미충족 항목 보완, PLAN.md 초안 | exit 0, 미충족 2개 이하 | 심사 결과에서 미충족 2개를 내 말로 메모 |
-| 144–165 | **동결** | 기능 추가 금지. README·PLAN·DECISIONS 정리(모든 주장에 증거 좌표, `grep -rn "결정:"` 결과를 DECISIONS 1절·TASK 2절로), **HANDOFF.md**, 한계·안 한 것 기록, TODO 제거, `/review`, flowmap 최종 갱신, 보고서 세션에 `$implementation-summary`(최종 구현 종합정리 → `out/report/implementation_summary.md`) | 설명 못 하는 코드 0줄 | README 데모 순서를 직접 실행, 설명 못 하는 코드 찾기 |
-| 165–170 | 최종 | 증거 좌표 누락 재점검(심사자 세션 짧은 프롬프트), preflight 재실행, 필수 파일 경로·저장 상태(저장됨) 확인 | | 제출 버튼 위치 재확인 |
-| 170 | 제출 | 상단 제출 버튼 → 미리보기 → 제출물 확정 | 확정 후 수정 불가 | |
+| 1 | 접속 | 규정 동의 → 웹캠 → 전체 화면 공유 → 감독 연결 | 감독 항목 전부 연결 | (-20분) |
+| 2 | 하네스 | T0 `git clone <하네스 저장소 URL>` → 과제 폴더로 복사(하네스 README) | 과제 폴더에 AGENTS.md | 실패 → 5절 Plan C |
+| 3 | 환경 | T0 `python3 scripts/preflight.py --env` | Python 3.9 이상 · 도구 유무 · `fromisoformat` OK | 특이점은 PRD 8(환경)에 1줄 |
+| 4 | Codex | T1 `codex` → `/status` → `/model` → `/skills` | 스킬 6개: kickoff · prd · plan · rule-loop · web-ui · verify-agent | effort: A 는 규칙 설계·디버깅 때만 high, B·C medium |
+| 5 | 동시 실행 | 같은 폴더에서 `codex` 2개를 띄워 각각 `ls` → 둘 다 종료 | 둘 다 응답 · 잠금·충돌 메시지 0 | (약 1분) |
+| 6 | 미리보기 | T0 `python3 -m http.server 3000 --bind 0.0.0.0` → 미리보기 포트 3000 → Ctrl+C | 화면이 뜸 | 앱 8000 · 결정 폼 8010(막히면 8001·8011) |
+| 6b | Codex 서버 | T1 에 "`python3 -m http.server 8100 --bind 0.0.0.0` 을 백그라운드로 띄우고 포트 보고" → 미리보기 8100 → T1 에 "끄기" | 보고 1줄 · 화면 뜸 · 끈 뒤 포트 닫힘 | 실패(권한·샌드박스) → 메시지 원문을 PRD 8 에, 그때만 T0 에서 같은 명령 |
+| 7 | 이미지 생성(Codex 내장 도구, CLI 0.137 이상) | T1 에 "이미지 생성 도구로 1280×800 웹 화면 시안 1장을 `.tmp/sian_test.png` 로 저장" → T0 `ls -la .tmp/sian_test.png` · `codex features list` 의 `image_generation` 줄 | 파일 1개 · 성공·실패(실패면 메시지 원문) → PRD 8 | 성공 = 시안·그림 생성 경로 / 실패 = HTML 시안(`design-kit/illustrations/PROMPTS.md` 시안 절) · 그림은 키트 세트 → 데이터 그림 → 틴트 면 |
+| 8 | 세션 로그 | 어느 Codex 창 로그가 수집되나(메인만 / 전부) | 범위 메모 | 어느 쪽이든 위임 원문은 PLAN 8 에 |
+| 9 | 에디터·메신저·제출 | 새 파일 → '저장됨' 표시 · 담당자 창 보내기 1회 · 제출 버튼·제출 기준 폴더 경로 | 경로 메모 → PRD 8(환경) | |
 
-## 문제 유형 분기 (Facts를 어디서 가져오나만 바뀐다)
-| 유형 | 모습 | 할 일 |
+- 시작 신호 뒤: README 정독(코드 금지) → 하네스 복사 → 2절 1단계.
+
+## 2. 6단계 카드
+
+| 단계 | 들어가는 조건 | 사람이 치는 것(창) | 끝 신호 | 참고 |
+|---|---|---|---|---|
+| 1 읽기·인터뷰·PRD | 시작 신호 뒤 | T1 prompts 1(`$kickoff`, 시작·마감 시각) → 질문을 M 에 3~4개씩 2~3회(첫 묶음 R+A+B+C, 다듬기 prompts 2) → 답을 T1 에 prompts 3(`답변 B2: …`) → T1 prompts 4(`$prd`) → PRD.md 를 읽고 prompts 5(검토 피드백) → PRD 검토 요청 5줄을 M 에 → 회신 원문을 붙여 T1 prompts 6("PRD 승인") | PRD v1 승인 + 담당자 회신 원문 기록(PRD 2행 버전 `v1` · DECISIONS 0 `담당자 회신: HH:MM "원문"`) · PRD 11 제출 표 초안 | (0–40분) 코드 금지 · 회신 전에 승인해도 됨(다른 점은 `요구사항 갱신:`) |
+| 2 계획 CP0 | PRD v1 승인 | T1 prompts 8(`$plan`) → PLAN 4번 표·4-2 연결 표를 읽고 prompts 9(표 수정·"표 승인") → T0 `python3 scripts/scaffold.py --stages <A 모듈명,쉼표>`(영문 소문자, 예 `contract,judge`) 1회 | PLAN 4번 표(입력·완료 조건에 PRD ID) · 4-2 연결 표 · TASK 5 · `work/agents/` 3개 · run.py | (40–55분) 승인 안 함: 같은 산출 파일이 두 담당에 / PRD MUST 가 표에 없음 / 다른 담당을 기다리는 task 에 연결 행 없음 |
+| 3 구현 | 표 승인 | T1 prompts 10(A_core 시작) → T2 `codex` + prompts 11(B_web `$web-ui 시안`, scaffold 출력 확인 뒤) → 시안 보고가 오면 미리보기 8000 `/draft/sian_N.png` 를 열어 비교 → T2 에 prompts 12(`시안 N 선택` 또는 `시안 생략`) → B 가 `design-kit/DESIGN_과제.md` 를 쓴 뒤 `$web-ui 초안` → T3 `codex` + prompts 13(C_verify, A·B 첫 task green 뒤) → `연결 N` 이 보이면 받는 창에 prompts 14 → CP1 때 6절 'CP1' → 각 창 prompts 16(재개) | 담당별 `out/debug/NN_*/green.txt`·`verify.json` · `DESIGN_과제.md` 0절 출처 · CP1 = run.py 가 필수 출력을 올바른 헤더로 + B 더미 렌더 | (55–150분 · B 는 A +10~15분) 사람 = 신호 전달자(아래 표) |
+| 4 통합 CP2 | 세 파일 2행 `상태:` 전부 green | T3 `$verify-agent <A·B task>` → T0 `preflight --require` · `check_contract`(3절) → T0 `preflight --freeze`(사람만) → 범위 축소 결정 → T4 심사 1회(prompts 22) → 미충족 2개를 담당 창에 prompts 16(재개) → T3 `$verify-agent summary`(FROZEN 전 = 핵심 3개 초안만) | preflight FAIL 0 · `.tmp/freeze_N/` · 미충족 ≤2 · 핵심 3개 초안 | (150–185분) CP1 이후 구조·라이브러리 변경 없음 |
+| 5 화면 고도화 | `.tmp/freeze_N/` 있음 | T2 `$web-ui 최종`(B 가 서버 재시작·`ui_check --final`·헤드리스 스크린샷까지 하고 포트 보고) → 미리보기에서 1280·390px 직접 클릭 → T2 에 prompts 20(`HUMAN_CHECK HH:MM 통과`) | `.figure` 빈 박스 0 · ui_check PASS · HUMAN_CHECK 기록 | (185–210분) 웹 없으면 건너뜀 · 그림 순서: 생성 → 키트 세트 → 데이터 그림 → 틴트 면 |
+| 6 정리·제출 CP3 | 사람이 TASK 머리 Status 를 `FROZEN` 으로 | 세 창에 prompts 23(동결 선언) → T0 `python3 -m unittest -v` → T3 prompts 24(`$verify-agent summary`) → 4절 제출 카드(prompts 25) | TODO 0 · 핵심 3개 숫자 갱신 · PRD 11 표 전부 `[x]` · 제출 ID | (210–240분) 동결 뒤 허용 = 문서·근거(파일:줄)·복사·재시작 |
+
+3단계에서 사람이 하는 일(신호 전달자):
+
+| 이럴 때 | 사람이 하는 일 | 붙일 글(창) |
 |---|---|---|
-| A 문서+데이터 | README에 MUST/SHOULD·규칙이 상세 | Facts = README. 5질문(누가 무슨 결정 / 절대 안 되는 일 / 성공 숫자 / 데이터 없거나 틀릴 때 / 안 해도 되는 것)에 답이 없으면 담당자에게 |
-| B 담당자 대화형 | README가 모호, 담당자가 조건을 쥠 | **무엇을 물었는지가 채점된다.** 안 묻고 가정하면 감점. 합의문 확인 후 코딩 |
-| C 짧고 모호 | "~를 만들어 보세요" | 가정 6~8줄에 `→ 틀리면 ___가 바뀐다`. 가정이 점수 |
-| D 화면·앱 | 미리보기·0.0.0.0·PORT 언급 | 서버는 사람이 다른 터미널에서 띄운다(Codex 는 명령만 준다, "너가 포트 열어줘" 때만 직접). 완료 조건을 "이 화면에서 [동작]을 하면 [결과]" 문장으로, 매 기능 뒤 직접 눌러 DECISIONS 검증 로그에 HUMAN_CHECK, `smoke_web.py`, design-kit 템플릿으로 30분 렌더 |
+| B 가 시안 2~3개를 냈다 | `static/draft/sian_N` 을 미리보기·파일로 보고 `시안 N 선택`(이유 1줄) 또는 `시안 생략` | prompts 12 (T2) |
+| 한 창 보고에 `연결 N` 이 있다 | PLAN 4-2 그 행의 받는 담당·가져올 것·끝 신호 확인 | prompts 14 (받는 창) |
+| `결정 대기 Dnn` 으로 멈췄다 | 3절 '결정?' 대로 답 | prompts 15 (그 창) |
+| ⑥⑦ 의 `@B`·`@사람` 요청 | 다음 CP 까지 모았다가 답 | prompts 16 (각 창) |
 
-## 원칙
-1. 시간의 30%는 검증에 쓴다. 안 되면 기능을 줄인다.
-2. 마지막 20%(144분~)에는 새 기능을 넣지 않는다. 같은 오류·같은 접근으로 2회 실패하면 DECISIONS 4번에 적고 접근을 바꾸거나 범위를 줄인다.
-3. 막히면 네 가지: 적는다(DECISIONS) / 확인한다(실행) / 기록한다(debug 폴더) / 설명한다.
-4. Codex 응답 대기 중에는 구간표의 '대기 중 사람이 할 일' 열을 한다(`next.py` 가 같은 줄을 찍는다). 대기도 시간이다.
-5. 하네스 설정은 5분 안에 끝낸다(clone → 복사 → AGENTS.md 읽히기). 시험 중 새 규칙·스킬을 만들지 않는다(스킬 상한 15, 현재 15). 과제 유형이 정해지면 안 쓸 스킬 폴더는 지운다(턴당 토큰 절약): 웹 없음 → `web-ui-build`·`ui-audit`, 기존 코드 없음 → `codebase-orientation`, Node 없음 → `archify`.
-6. 대화 로그가 채점 표면이다. 위임 프롬프트마다 목표·범위·제약·완료 조건·검증을 쓴다(docs/delegation_prompts.md). 요구가 바뀌면 `요구사항 갱신:`으로 알린다.
-7. 데이터 함정은 Codex를 현미경으로 써서 찾는다(그룹별 분포·시간 추세·단위 혼재를 표로) → 사람이 보고 가리킨다. 테스트에 맞춘 하드코딩 금지.
-8. 구간 끝마다 3질문: preflight 통과하나 / 지금 제출하면 몇 점인가(0점이면 범위 축소) / 직전 30분 코드를 설명할 수 있나(못 하면 되돌린다).
-9. 토큰: 180분에 Codex 턴 25회 이하를 목표. 긴 파일은 요약만 읽힌다.
-10. **두 터미널**: 메인 세션은 단계 묶음(예 1~3)을 계속 진행하고, 두 번째 세션(`$stage-report 1-3`)이 끝난 묶음의 보고서(`out/report/`)를 만든다. 사람은 메인이 4~6을 하는 동안 1~3 보고서를 검증한다. 보고서 세션은 `out/report/` 만 쓰므로 충돌이 없다(docs/diagram_guide.md 0절). 동결 구간에는 같은 세션이 `$implementation-summary` 로 최종 구현 종합정리를 만든다.
+- 남는 유일한 시간 규칙: 범위를 넓히는 요청에 Codex 가 `남은 N분 중 약 M분, 진행할까요?`(N 은 status.py) 로 되묻는다.
+- 되묻기 없이 범위를 넓히기 시작하면 멈춘다.
+- FROZEN 뒤 기능 요청에는 Codex 가 "동결 상태입니다, 해제할까요?" 로 되묻는다. 해제 안 하면 HANDOFF 6 에 1줄.
+- PRD 승인 뒤 담당자 답이 바뀌면 T1 에 `요구사항 갱신: …`(prompts 7) → Codex 가 `$prd 갱신`(PRD 10절·바뀐 ID·영향 task).
+- `$prd 갱신` 보고의 `@B`·`@C` 한 줄은 그 창에 전달한다.
 
-## 막혔을 때 결정 트리
+## 3. 체크포인트 메뉴 (언제가 아니라 궁금할 때)
+
+| 궁금한 것 | 명령·행동(창) |
+|---|---|
+| 지금 상태? | T0 `python3 scripts/status.py` — 1줄(끝에 PRD 버전), 추천·독촉 없음 |
+| 다음에 누가 무엇을?(연결 표 보기) | PLAN 4-2 연결 표 · 각 work 파일 ⑦ 의 `연결 N` 줄 → 받는 창에 prompts 14 |
+| 시안 다시 보기 | T0 `ls static/draft/` · 미리보기 8000 `/draft/sian_N.png`(HTML 시안은 `/draft/sian_N.html`) |
+| 제출 가능? | T0 `python3 scripts/preflight.py --require <필수 파일>` + `python3 scripts/check_contract.py`(check_contract exit 2 는 통과 아님) · PRD 11 표 |
+| 찍어둘까? | T0 `python3 scripts/preflight.py --freeze` — 사람만. 복구본 `.tmp/freeze_N/`(찍을 때마다 N+1) |
+| 테스트 약해졌나? | T0 `python3 scripts/preflight.py --check-freeze` — 변경이 있으면 DECISIONS 에 승인 기록 |
+| 결정? | 에이전트가 멈춘 CP 때만. 에디터로 `decisions/pending.md` 후보 `[ ]`→`[x]` + 메모 → 각 창에 prompts 15(결정 답 반영), 또는 아래 결정 폼 |
+| 심사자라면? | T4 `codex -s read-only` → `docs/judge_simulation.md` 프롬프트(CP2 통합 뒤 1회) |
+| 기록 규칙? | T0 `python3 scripts/debug_dir.py --check` · `python3 scripts/docmap.py --check` |
+| 동결 선언 | TASK 머리 Status 를 `FROZEN` 으로 → 세 창에 prompts 23(동결 선언) → T0 `python3 -m unittest -v` |
+| Codex 에게 | `STATE`(1줄 + 검증 안 된 항목 + 자가 감사 3개, prompts 17) · `요구사항 갱신: …`(prompts 7 → `$prd 갱신`) |
+| 처음 보는 말? | 8절 용어표 |
+
+결정 폼(`scripts/decide.py`):
+1. 세 창이 모두 멈춘 CP 에만 연다(폼이 pending.md 를 다시 써서 append 중인 줄이 사라질 수 있다).
+2. 다른 터미널(T0)에서 `python3 scripts/decide.py --port 8010` → `http://0.0.0.0:8010/` 이 찍힌다(막히면 `--port 8011`).
+3. 미리보기 포트 8010 · 경로 `/` → 미답 카드마다 후보 1개(기타는 텍스트) + 메모 → `Dnn 답 기록`.
+4. `담당자 확인: 필요` 카드는 담당자 답을 먼저 받는다.
+5. 확인: `decisions/answers.md` 끝 `D07: A (메모: …) @HH:MM` · pending 후보 `[x]` → Ctrl+C → 각 창에 prompts 15.
+6. 서버 없이 목록만 보기: `python3 scripts/decide.py --list`.
+7. answers.md 에 손으로 쓴 줄은 `python3 scripts/decide.py --apply` 로 pending 후보 `[x]` 에 옮긴다(이것도 CP 때만).
+
+## 4. 제출 카드 (순서 고정)
+
+| # | 할 일 | 명령·행동(T0) | 확인 |
+|---|---|---|---|
+| 1 | PRD 11 표를 위에서부터 확인 | 행마다 파일·폴더·이름·형식을 README 원문과 대조 → 상태 `[x]` | 빠진 행 0 · 아래 2~9 의 대상 목록 |
+| 2 | preflight 재실행 | `python3 scripts/preflight.py --require <PRD 11 의 파일들>` | exit 0 |
+| 3 | 기록 규칙 | `python3 scripts/debug_dir.py --check` | exit 0 · 금지 패턴 0 |
+| 4 | 서버 재시작 | T2(B, 1세션이면 T1)에 "서버 재시작" → `[서버] 포트 8000 열었음` 보고 확인 | 보고 1줄·미리보기 접속 |
+| 5 | 화면 1회 | 미리보기 8000 → README 데모 순서 1회(정상 1 · 실패 1) | 콘솔 오류 0 · 390px 가로 스크롤 0 |
+| 6 | 제출 기준 폴더 복사 | `cp -r <PRD 11 의 파일·폴더> <제출 기준 폴더>/ && ls -la <제출 기준 폴더>` | 파일 수 = PRD 11 표대로 |
+| 7 | 저장됨 | 에디터 상단 '저장됨'(외부 변경 감지면 불러오기 뒤 재확인) | 미저장 0 |
+| 8 | 제출 | 제출 버튼 → 미리보기 → 확정 | 확정 뒤 수정 불가 |
+| 9 | 기록 | 제출 ID · 시각 · 파일 수 · 크기 → HANDOFF 1 | 완료 화면과 같음 |
+
+- 웹 없는 과제는 4·5 를 건너뛴다. 제출 기준 폴더가 따로 없으면 6 은 `ls` 만.
+- 서버 재시작·복사 표는 T2(1세션 T1)에 prompts 25 로 받는다. 복사는 사람이 T0 에서.
+
+## 5. 막혔을 때
+
 | 상황 | 할 일 |
 |---|---|
-| 같은 에러가 5분째 | 에러 메시지 전문을 Codex에 붙여넣고 `$debug-loop` |
-| 15분째 진전 없음 | 그 규칙을 TASK.md 8번(못 한 것)으로 옮기고 이유를 적는다. 포기하고 적는 것은 감점이 작고 조용히 틀린 코드가 감점이 크다 |
-| 코드가 이해 안 됨 | "더 단순하게 다시 써줘. 내가 읽고 설명할 수 있게" + 보고서 세션 `$stage-report N` 으로 그 단계의 구현 위치·방법·샘플을 그림으로 본다 |
-| 결정을 못 정하겠다 | `decisions/pending.md` 또는 `python3 scripts/decide.py`(사람이 실행)로 후보·추천·담당자 질문을 본다. 업무 사실이 필요하면 그 질문을 담당자에게 보내고 답을 메모에 적어 고른다. Codex 는 답이 올 때까지 그 결정에 기대는 작업을 하지 않는다 |
-| 디버그 파일이 늘어난다 | `scripts/debug_dir.py` 폴더당 5파일, 스냅샷 금지, 임시물은 `.tmp/` |
-| 남은 시간 30분, 미완성 | 기능 추가 중단. 되는 부분만 확실히, 나머지는 한계로 문서화 |
-| `git clone` 실패 | **Plan C**: GitHub 웹에서 AGENTS.md → TASK.md → DECISIONS.md 순으로 복사·붙여넣기(이 3개면 절반). 나머지는 Codex에게 "AGENTS.md 3절 규칙대로 preflight.py를 만들어줘" |
+| 같은 에러로 2회 실패 | 트레이스백 전문을 그 창에 붙이고 prompts 26(`$rule-loop`, 최소 재현 먼저) → DECISIONS 4 에 RED→FIX 1줄 |
+| task 진전 없음 · 남은 분이 작음 | 기능 추가 중단 → PLAN 4번 표에 생략 후보 + 사유 → HANDOFF 5·6(조용히 틀린 코드가 더 큰 감점) |
+| 코드가 이해 안 됨 | 그 창에 "더 단순하게, 내가 설명할 수 있게" + T3 `$verify-agent <task>` → `out/report/stage_NN.md` 1쪽 |
+| 결정을 못 정함 | 3절 '결정?'. 업무 사실이면 담당자(제외 목록 먼저 확인). 답이 올 때까지 에이전트는 다른 task |
+| 담당자 답이 PRD 와 다름 | T1 에 `요구사항 갱신: …` → `$prd 갱신` 보고의 영향 task 를 담당 창에 전달 → 테스트부터 고친 뒤 코드 |
+| 받는 창이 옛 계약·옛 헤더로 일함 | 신호를 놓친 것. PLAN 4-2 그 행을 다시 전달(prompts 14) → 바뀐 점만 고치게 |
+| 시안 이미지가 안 만들어짐 | T2 에 같은 후보로 HTML 시안(토큰만 바꾼 페이지)을 요청. 고르는 답은 같다(`시안 N 선택`, prompts 12) |
+| 두 에이전트가 같은 파일을 고침 | `work/README.md` 소유권 표로 한쪽을 되돌림. A↔B 계약 변경은 pending 으로만 |
+| 에이전트가 `--freeze`·하위 에이전트·보이는 브라우저 창 | 멈추고 "freeze·창·GUI 는 사람이 한다, 서버는 열되 포트를 보고"(AGENTS 1절) |
+| `git clone` 실패 | Plan C: 저장소 웹 화면에서 AGENTS.md → TASK.md → PRD.md → DECISIONS.md 순으로 복사 |
 
-## 제출 체크
-- [ ] 필수 파일명·경로·형식이 README와 일치 (헤더·정렬·인코딩)
-- [ ] 실행 명령을 실제로 쳐봤고 출력을 확인 (preflight `--smoke`로 기록)
-- [ ] 과제 테스트 수·결과를 숫자로 말할 수 있음(preflight `tests` 줄 — `harness-tests` 줄은 README 에 넣지 않음) · check_contract exit 0
-- [ ] `python3 scripts/docmap.py --check` exit 0 (함수마다 설명문 입력·출력 줄) · 긴 함수(40줄)·긴 파일(300줄)은 나눴거나 이유를 DECISIONS 1번에
-- [ ] TASK.md 완료 조건 ↔ 테스트 1:1 · 규칙별 발동 건수 확인
-- [ ] DECISIONS.md에 안 만든 것·한계·실패 지점·검증 로그가 적힘
-- [ ] README/PLAN에 TODO·미구현·TBD 문구 0, 데모 순서·실제 vs 목업 표 있음
-- [ ] preflight exit 0 (또는 SKIP 사유 설명 가능)
-- [ ] out/debug 단계 폴더에 첫 완주·규칙·1차 동결·동결 기록이 남음 (`debug_dir.py --check` exit 0)
-- [ ] 내가 설명 못 하는 코드 0줄
-- [ ] README/PLAN/DECISIONS의 주장마다 증거 좌표(파일:줄·테스트·실행 명령)
-- [ ] HANDOFF.md 작성(다음 사람이 이어갈 수 있게)
-- [ ] 심사자 시뮬레이션 미충족 항목 보완 또는 한계로 기록
-- [ ] 웹 과제: 미리보기 콘솔 오류 0 / 390px 가로 스크롤 없음 / 데모 순서 1회 완주(시각 기록) / screenshots/ 2장
-- [ ] `decisions/pending.md` 미답 항목 0 (전부 사람이 답함, 담당자 확인 필요 항목은 담당자 답을 메모에 남김)
-- [ ] 담당자 답으로 바뀐 요구는 `요구사항 갱신:` 으로 보냈고 DECISIONS.md 0번 '합의 변경' 목록에 시각·출처와 함께 있음
-- [ ] `out/debug` 단계 폴더 ≤ 40파일, 스냅샷 폴더 없음, `.tmp/` 는 제출물 아님(복구본 `.tmp/freeze_1/` 만 허용)
-- [ ] `out/report/index.html`(보고서 세션 `$stage-report all`) 최신, `docs/diagrams/`(archify, 있으면) README 데모 순서에 링크
-- [ ] `out/report/implementation_summary.md`(보고서 세션 `$implementation-summary`) 표 4개(오해하기 쉬운 지점·부분별 설계 이유·장애 대응표·대체값)와 정리 항목 A~H 전부 채움, 코드 좌표 대조 끝, 핵심 3개가 최신 구현과 맞음, README 에 링크
+## 6. 기다리는 동안 할 일
+
+| 기다리는 때 | 사람이 하는 것 |
+|---|---|
+| 1 인터뷰 답 | README 재정독 · P0 체크(제출 파일명·형식 → PRD 11) · eda 요약을 내 말로 3줄 |
+| 1 `$prd` | PRD 검토: 위험한 가정 2개·출처가 약한 규칙 2개·범위 밖 1개를 내 말로 → 고칠 곳 표시 |
+| 2 `$plan` | PRD 3·5·6 을 소리 내어 읽기 · 되묻기 후보 2개 · 연결 표에서 내가 전달할 신호 세기 |
+| 3 시안 대기 | 시안을 PRD 4절 화면과 나란히 놓고 첫 화면 핵심·상태색·분위기 3단어를 비교 → `시안 N 선택` 1개 |
+| 3 구현 중 | `work/agents/*.md` 2행 `상태:` 만 읽기 · ⑦ 의 `연결 N` 은 바로 전달(prompts 14) · 나머지 ⑥⑦ 과 pending 미답은 CP 까지 모음 |
+| 3 CP1 | 세 파일 ⑥⑦ + PLAN 표 → pending 답 → 담당자 묶음 → 생략 후보 결정 |
+| 4 통합 | 심사 미충족 2개 · 핵심 3개(작동 원리·가장 위험한 실패·바꾼 것과 이유)를 내 말로 |
+| 5·6 화면·정리 | 1280·390px 클릭 · 콘솔 · 설명 못 하는 코드 찾기 · PRD 11 표 상태 채우기 |
+
+## 7. 제출 체크
+
+- [ ] PRD 11 표 상태 전부 `[x]` — 파일명·경로·형식이 README 와 같음(대소문자·확장자·헤더·정렬·인코딩)
+- [ ] 샘플 3행 눈 대조 · 입력 원본 불변
+- [ ] 실행 명령을 실제로 쳐 봄(`--smoke`) · `unittest` 숫자(과제 `tests/` 만) · `check_contract.py` exit 0 · 발동 0건 규칙 없음
+- [ ] `preflight.py` exit 0(SKIP 사유 설명 가능) · `docmap.py --check` · `debug_dir.py --check` exit 0
+- [ ] `--check-freeze` 변경 0 또는 DECISIONS 승인 기록
+- [ ] TASK 머리 Status `FROZEN` · 5 완료 조건(PRD ID) ↔ 테스트 1:1 · 템플릿 문구 0
+- [ ] PRD 2행 버전 `v1` 이상·승인 시각 · 5 MUST 마다 TASK 5 행 · 10절 변경 이력 수 = `요구사항 갱신:` 수
+- [ ] FROZEN 에서 `python3 -m unittest` 가 TASK·PLAN·DECISIONS·HANDOFF·PRD·README 의 자리표시를 FAIL 로 잡는다
+- [ ] 자리표시(`HH:MM`·`__:__`·`__/__`·`exit __`·`___`·'아직 전송하지 않음')는 한 문장 목표·머리줄·HANDOFF 실행 블록까지 채운다
+- [ ] PLAN 4 상태 열 전부 PASS/HUMAN_CHECK/`NOT_RUN(생략: 사유)`(status.py 에 `task 8/9(생략 1)` 로 따로) · 8 위임 원문 · 9 한계
+- [ ] PLAN 4-2 연결 표의 신호마다 받는 쪽 반영 기록(work 파일 ⑤ '연결 N 반영')
+- [ ] DECISIONS 0 PRD 송부·회신 시각·원문 · 1 결정자 열 · 4 RED→FIX · 5 한계 · 6 검증 로그
+- [ ] HANDOFF 1 숫자 한 줄 · 5 한계+믿지 말 것 · 6 다음 할 일
+- [ ] README 데모 순서(정상·실패) · 실제 vs 목업 · TODO/TBD 0 · 주장마다 근거(파일:줄)
+- [ ] `status.py` 에 `대기 없음`(pending 미답 0) · `요구사항 갱신:` 이 PLAN 8(원문)·PRD 10(내용)·DECISIONS 0(시각) 에
+- [ ] `out/report/stage_NN.md` · `out/report/implementation_summary.md` 핵심 3개 숫자 갱신 · README 에 링크
+- [ ] 종합정리 표 7개 · 결함 사례 카드 수 = DECISIONS 4 행 수 · 동시 요청 때 지금 동작(테스트 또는 '확인 안 함')
+- [ ] `work/agents/*.md` 2행 `상태:` 최종 · ⑤ 로그 남음
+- [ ] 웹: 콘솔 오류 0 · 390px 가로 스크롤 0 · `screenshots/` 2장 · `.figure` 빈 박스 0 · 외부 URL 0
+- [ ] 웹 디자인: `design-kit/DESIGN_과제.md` 있음 · README 에 고른 참고 md 출처 1줄(예 ko-design-md, CC BY 4.0)
+- [ ] 심사 미충족 보완 또는 한계 기록 · 내가 설명 못 하는 코드 0줄
+
+## 8. 용어 10개
+
+| 용어 | 쉬운 말 | 어디서 쓰나 |
+|---|---|---|
+| CP0~CP3 | 사람이 멈춰서 고르는 지점: 계획 승인 · 뼈대 작동 · 필수 기능 완료 · 동결 | TASK 머리 2행 · 2절 단계 카드 |
+| PRD v0 / v1 | 요구사항 초안 / 사람이 승인한 판 | PRD 2행 · status.py 줄 끝 |
+| 연결 표 · 신호 | 한 담당의 task 가 끝나면 다른 담당이 이어받는 순서표 · 그 "끝" 보고 | PLAN 4-2 · prompts 14 |
+| pending · Dnn | 사람이 골라야 할 업무 결정 목록 · 그 번호 | `decisions/pending.md` · 3절 '결정?' |
+| HUMAN_CHECK | 사람이 눈으로 확인(화면·판단) | PLAN 4·5 · HANDOFF 5 |
+| NOT_RUN | 아직 안 돌림(통과가 아님) | PLAN 4 상태 열 · 보고 |
+| green / RED→FIX | 테스트 통과 기록 / 실패를 다시 만들어 본 뒤 고침 | `out/debug/NN_*/` · DECISIONS 4 |
+| freeze / FROZEN | 지금 상태를 찍어 둔 복구본 / 기능 변경을 끝낸 동결 선언 | `preflight --freeze` · TASK 머리 2행 |
+| 근거(파일:줄) | 주장마다 붙이는 위치: 파일:줄·테스트 이름·명령 | 모든 제출 문서 |
+| 시안 | 화면 후보(그림 또는 HTML) 2~3개, 사람이 `시안 N 선택` 으로 1개 고름 | `static/draft/` · prompts 11·12 |

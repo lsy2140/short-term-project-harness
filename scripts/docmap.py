@@ -26,11 +26,12 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:  # noqa
     pass
 
 EXCLUDE_DIRS = {'scripts', 'tests', 'design-kit', 'docs', 'decisions', 'data', 'out', 'screenshots',
-                'submission', '__pycache__', 'node_modules', 'venv', 'LICENSES'}
+                'submission', '__pycache__', 'node_modules', 'venv', 'work'}
 INPUT_RE = re.compile(r'^\s*(입력|input|inputs|args?|arguments|parameters)\s*[:：]', re.I | re.M)
 OUTPUT_RE = re.compile(r'^\s*(출력|output|outputs|returns?|반환)\s*[:：]', re.I | re.M)
 RULE_RE = re.compile(r'^\s*(규칙|rule)\s*[:：]\s*(.*)$', re.I | re.M)

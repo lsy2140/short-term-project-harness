@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """make_edge_cases.py — 아무 CSV 에서 "내가 상상 못 한 입력" 변형을 만든다 (표준 라이브러리, 결정적).
 
-  python3 scripts/make_edge_cases.py data/input.csv --out data/edge/
-생성: empty.csv(헤더만) / dirty.csv(결측·NA·공백·대소문자·쉼표숫자·Z시각 섞음) / dup.csv(중복 행 5%)
-      / shuffled.csv(행 순서 섞음) / extra_col.csv(모르는 열 추가) / header_only_diff.csv(열 순서 변경)
+  python3 scripts/make_edge_cases.py data/input.csv --out .tmp/<이름>/edge    # 기본 --out .tmp/edge (data/ 는 읽기 전용이라 쓰지 않는다)
+생성: <원본>.{empty,dirty,dup,shuffled,extra_col,colorder}.csv
+      empty(헤더만) / dirty(결측·NA·공백·대소문자·쉼표숫자·Z시각 섞음) / dup(중복 행 5%) / shuffled(행 순서 섞음)
+      / extra_col(모르는 열 추가) / colorder(열 순서 변경)
 용도: 내 프로그램을 각 파일로 돌려 "안 터지는지 / 조용히 틀리지 않는지" 확인한다. 규칙 테스트(verify)와 짝으로 쓴다.
 """
 import argparse
@@ -14,6 +15,7 @@ import sys
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:  # noqa
     pass
 import random
@@ -60,11 +62,11 @@ def dirty(header, rows, rnd, rate=0.03):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('csv')
-    ap.add_argument('--out', default='data/edge')
-    ap.add_argument('--seed', type=int, default=7)
-    ap.add_argument('--rate', type=float, default=0.03)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('csv', help='원본 CSV(읽기만 한다)')
+    ap.add_argument('--out', default=os.path.join('.tmp', 'edge'), help='변형 파일 폴더(기본 .tmp/edge — data/ 에 쓰지 않는다)')
+    ap.add_argument('--seed', type=int, default=7, help='난수 시드(기본 7, 같은 시드면 같은 파일)')
+    ap.add_argument('--rate', type=float, default=0.03, help='dirty 변형 비율(기본 0.03)')
     a = ap.parse_args()
     rnd = random.Random(a.seed)
     header, rows = load(a.csv)

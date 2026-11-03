@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로트 조회</title>
+<!-- 템플릿 tool (조회·검색 도구): 필터 바 + 세그먼트 카운트 + 목록/상세 40:60 split + 상세 탭 + figure 1. 큰 제목·리드 문장 없음.
+ 1280 +----------------------------------------------------------------------+
+      | [B] 라인 도구                                         기준 09:00      |  topbar
+      | [검색_________] [공정 v] [정렬 v] (칩 x)(칩 x)           [초기화]      |  필터 바
+      | [전체 8] [진행 4] [대기 1] [홀드 1] [완료 2]                           |  세그먼트 카운트
+      | +== 목록 40% ===============+  +== 상세 60% =========================+ |
+      | | [홀드] LOT-24A114   05:40 |  | LOT-24A114 [홀드]  [재배정] [복사]  | |
+      | | [진행] LOT-24A113   06:10 |  | (개요) (관련 알림 1) (이력)         | |
+      | | 36px 행, 선택 행 틴트      |  | kv 표 + figure 16/9 초안 1개        | |
+      | +===========================+  +=====================================+ |
+  390: 검색 1줄 > 세그먼트(가로 스크롤) > 목록 > 상세(아래로 이어짐, 목록으로 버튼)
+  매핑: data.json 의 lots(목록·개요) / alarms(설비 ID 로 관련 알림). 선택한 로트는 주소 #로트ID 로 남는다. -->
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../base.css">
+<link rel="stylesheet" href="../components.css">
+<style>
+  .seg-wrap { overflow-x: auto; padding: var(--s-1) 0; }
+  .tabs .n { font-size: 11px; color: var(--muted); margin-left: 2px; }
+  .tab-panel:not([hidden]) { display: grid; gap: var(--s-4); padding-top: var(--s-4); }
+  .rows .r .t .s { margin-left: var(--s-2); }
+  .only-md { display: none; }
+  @media (max-width: 1024px) { .only-md { display: inline-flex; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="bar">
+    <div class="ident">
+      <div class="logo" aria-hidden="true">B</div>
+      <div class="brand-text"><b>라인 도구</b><small id="line-name">-</small></div>
+    </div>
+    <div class="actions"><span class="meta" id="asof">기준 -</span></div>
+  </div>
+</header>
+<main class="container">
+  <div class="page-head">
+    <h1>로트 조회</h1>
+    <span class="meta" id="total">-</span>
+  </div>
+  <div class="toolbar" role="search">
+    <label class="sr-only" for="q">로트, 제품, 설비 검색</label>
+    <input class="input search" id="q" type="search" placeholder="로트, 제품, 설비 ID">
+    <label class="sr-only" for="f-step">공정</label>
+    <select id="f-step"><option value="">공정 전체</option></select>
+    <label class="sr-only" for="sort">정렬</label>
+    <select id="sort">
+      <option value="start">시작 최근순</option>
+      <option value="qty">수량 많은순</option>
+      <option value="lot">로트 번호순</option>
+    </select>
+    <div class="chips" id="chips" hidden></div>
+    <span class="spacer"></span>
+    <button class="btn ghost sm" type="button" id="reset">초기화</button>
+  </div>
+  <div class="seg-wrap"><div class="seg" role="group" aria-label="상태별 보기" id="seg"></div></div>
+  <div class="banner" id="status" hidden></div>
+
+  <div class="split section">
+    <section class="panel" aria-labelledby="h-list">
+      <div class="panel-head"><h2 id="h-list">목록</h2><span class="meta" id="list-count">-</span></div>
+      <div class="rows" id="list"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-detail" id="detail-panel">
+      <div class="panel-head">
+        <h2 id="h-detail">상세</h2>
+        <div class="btn-row">
+          <button class="btn sm only-md" type="button" id="back"><svg class="ico sm" aria-hidden="true"><use href="../icons.svg#i-arrow-left"/></svg>목록으로</button>
+          <span id="actions" class="btn-row"></span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="empty" id="pick"><b>왼쪽 목록에서 로트를 고르세요</b>선택한 로트의 개요, 관련 알림, 이력이 여기에 나옵니다.</div>
+        <div id="detail" hidden>
+          <div class="tabs" role="tablist" aria-label="상세 보기">
+            <button type="button" role="tab" id="tab-sum" aria-controls="t-sum" aria-selected="true">개요</button>
+            <button type="button" role="tab" id="tab-alm" aria-controls="t-alm" aria-selected="false">관련 알림<span class="n" id="n-alm">0</span></button>
+            <button type="button" role="tab" id="tab-log" aria-controls="t-log" aria-selected="false">이력</button>
+          </div>
+          <div class="tab-panel" id="t-sum" role="tabpanel" aria-labelledby="tab-sum">
+            <div id="sum"></div>
+            <figure class="figure" data-ratio="16/9"><figcaption>어떤 그림: 이 로트가 지나는 공정 흐름(PHOTO, ETCH, CVD 순)과 지금 위치를 표시한 2색 라인 그림</figcaption></figure>
+          </div>
+          <div class="tab-panel" id="t-alm" role="tabpanel" aria-labelledby="tab-alm" hidden></div>
+          <div class="tab-panel" id="t-log" role="tabpanel" aria-labelledby="tab-log" hidden></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="../kit.js"></script>
+<script>
+(function () {
+  'use strict';
+  var LOT = { RUN: ['진행', 'ok'], WAIT: ['대기', 'info'], HOLD: ['홀드', 'bad'], DONE: ['완료', 'off'] };
+  var SEGS = [['', '전체'], ['RUN', '진행'], ['WAIT', '대기'], ['HOLD', '홀드'], ['DONE', '완료']];
+  var SEV = { Critical: ['긴급', 'bad'], Major: ['주의', 'warn'], Minor: ['정보', 'info'] };
+  var SAMPLE = {
+    meta: { line: '샘플 라인', asof: '2026-01-01T09:00' },
+    lots: [{ lot: 'LOT-S001', product: '샘플 제품', step: 'STEP', eqp: 'EQ-01', qty: 25, start: '2026-01-01T08:00', end: null, state: 'RUN', hold: '' }],
+    alarms: []
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var D = null, st = '', sel = decodeURIComponent(location.hash.slice(1)), tab = 'sum';
+
+  function empty(title, hint, btn) {
+    return '<div class="empty"><b>' + K.esc(title) + '</b>' + K.esc(hint || '') + (btn ? '<div class="cta">' + btn + '</div>' : '') + '</div>';
+  }
+  function base() {   // 검색어·공정까지 거른 목록(세그먼트 카운트의 기준)
+    var q = $('q').value.trim().toLowerCase(), step = $('f-step').value;
+    return D.lots.filter(function (l) {
+      if (step && l.step !== step) return false;
+      return !q || [l.lot, l.product, l.eqp, l.step].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  function sorted(rows) {
+    var k = $('sort').value;
+    return rows.slice().sort(function (a, b) {
+      if (k === 'qty') return (b.qty || 0) - (a.qty || 0);
+      if (k === 'lot') return a.lot < b.lot ? -1 : 1;
+      return (b.start || '') < (a.start || '') ? -1 : 1;
+    });
+  }
+  function render() {
+    var all = base(), rows = sorted(all.filter(function (l) { return !st || l.state === st; }));
+    $('seg').innerHTML = SEGS.map(function (g) {
+      var n = all.filter(function (l) { return !g[0] || l.state === g[0]; }).length;
+      return '<button type="button" data-st="' + g[0] + '" aria-pressed="' + (st === g[0]) + '">' + g[1] + '<span class="n">' + n + '</span></button>';
+    }).join('');
+    var chips = [];
+    if ($('q').value.trim()) chips.push(['q', '검색: ' + $('q').value.trim()]);
+    if ($('f-step').value) chips.push(['step', '공정: ' + $('f-step').value]);
+    if (st) chips.push(['st', '상태: ' + LOT[st][0]]);
+    K.chips($('chips'), chips, function (key) {
+      if (key === 'q') $('q').value = ''; else if (key === 'step') $('f-step').value = ''; else st = '';
+      render();
+    });
+    $('list-count').textContent = rows.length + '건';
+    $('total').textContent = '전체 ' + D.lots.length + '건';
+    $('list').innerHTML = rows.map(function (l) {
+      var s = LOT[l.state] || [l.state, 'off'];
+      return '<button type="button" class="r" data-lot="' + K.esc(l.lot) + '"' + (l.lot === sel ? ' aria-current="true"' : '') + '>' +
+        K.badge(s[0], s[1]) + '<span class="t"><span class="id">' + K.esc(l.lot) + '</span><span class="s">' + K.esc(l.product) + '</span></span>' +
+        '<span class="s num">' + K.hhmm(l.start) + '</span></button>';
+    }).join('') || empty('조건에 맞는 로트가 없습니다', '필터를 지우면 전체 목록이 보입니다.', '<button class="btn sm" type="button" data-reset="1">필터 초기화</button>');
+  }
+  function showTab(name) {
+    tab = name;
+    ['sum', 'alm', 'log'].forEach(function (t) {
+      $('tab-' + t).setAttribute('aria-selected', String(t === name));
+      $('t-' + t).hidden = t !== name;
+    });
+  }
+  function detail() {
+    var l = D.lots.filter(function (x) { return x.lot === sel; })[0];
+    $('pick').hidden = !!l;
+    $('detail').hidden = !l;
+    $('actions').innerHTML = '';
+    if (!l) { $('h-detail').textContent = '상세'; return; }
+    var s = LOT[l.state] || [l.state, 'off'];
+    $('h-detail').innerHTML = '<span class="id">' + K.esc(l.lot) + '</span> ' + K.badge(s[0], s[1]);
+    $('actions').innerHTML = (l.state === 'HOLD' ? '<button class="btn brand sm" type="button" data-act="move">재배정 요청</button>' : '') +
+      '<button class="btn sm" type="button" data-act="copy"><svg class="ico sm" aria-hidden="true"><use href="../icons.svg#i-copy"/></svg>ID 복사</button>';
+    $('sum').innerHTML = K.kv([['제품', l.product], ['공정', l.step], ['설비', l.eqp], ['수량', K.fmt(l.qty) + '매'],
+      ['시작', K.hhmm(l.start)], ['종료', l.end ? K.hhmm(l.end) : '진행 중'], ['홀드 사유', l.hold]]);
+    var al = D.alarms.filter(function (a) { return a.eqp === l.eqp; });
+    $('n-alm').textContent = al.length;
+    $('t-alm').innerHTML = al.length ? '<div class="alarm-list">' + al.map(function (a) {
+      var v = SEV[a.sev] || [a.sev, 'info'];
+      return '<div class="alarm' + (a.ack ? ' acked' : '') + '"><span class="sev ' + v[1] + '"></span>' + K.badge(v[0], v[1]) +
+        '<span class="msg">' + K.esc(a.msg) + '</span><span class="when">' + K.hhmm(a.at) + '</span></div>';
+    }).join('') + '</div>' : empty('관련 알림이 없습니다', '설비 ' + l.eqp + ' 에 걸린 알림이 없습니다.');
+    var log = [[K.hhmm(l.start), '시작, 설비 ' + l.eqp + ' 투입']];
+    if (l.hold) log.push(['홀드', l.hold]);
+    log.push(l.end ? [K.hhmm(l.end), '완료'] : ['지금', LOT[l.state] ? LOT[l.state][0] + ' 상태' : l.state]);
+    $('t-log').innerHTML = K.kv(log);
+    showTab(tab);
+  }
+  function select(lot) {
+    sel = lot;
+    if (history.replaceState) history.replaceState(null, '', '#' + encodeURIComponent(lot));
+    render(); detail();
+    if (window.matchMedia('(max-width: 1024px)').matches) $('detail-panel').scrollIntoView({ block: 'start' });
+  }
+  function resetAll() { $('q').value = ''; $('f-step').value = ''; st = ''; render(); }
+  function boot() {
+    K.load('../data.json', SAMPLE).then(function (r) {
+      if (!r.data) {
+        K.setStatus($('status'), 'failed', r.error + '. 서버 경로와 data.json 형식을 확인하세요.');
+        $('list').innerHTML = empty('목록을 불러오지 못했습니다', '', '<button class="btn sm" type="button" data-retry="1">다시 시도</button>');
+        return;
+      }
+      D = r.data;
+      D.alarms = D.alarms || [];
+      var m = D.meta || {};
+      K.setStatus($('status'), r.state, r.state === 'ok' ? 'data.json 기준 ' + K.hhmm(m.asof) : r.error + '. data.json 을 읽지 못해 내장 샘플을 보여줍니다.');
+      $('line-name').textContent = m.line || '-';
+      $('asof').textContent = '기준 ' + K.hhmm(m.asof);
+      var steps = [];
+      D.lots.forEach(function (l) { if (steps.indexOf(l.step) < 0) steps.push(l.step); });
+      $('f-step').innerHTML = '<option value="">공정 전체</option>' + steps.map(function (s) { return '<option>' + K.esc(s) + '</option>'; }).join('');
+      render(); detail();
+    });
+  }
+  $('q').addEventListener('input', function () { if (D) render(); });
+  $('f-step').addEventListener('change', function () { if (D) render(); });
+  $('sort').addEventListener('change', function () { if (D) render(); });
+  $('reset').addEventListener('click', function () { if (D) resetAll(); });
+  $('seg').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-st]');
+    if (b) { st = b.getAttribute('data-st'); render(); }
+  });
+  $('list').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-lot]');
+    if (b) select(b.getAttribute('data-lot'));
+    else if (e.target.closest('[data-reset]')) resetAll();
+    else if (e.target.closest('[data-retry]')) boot();
+  });
+  document.querySelector('.tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[role="tab"]');
+    if (b) showTab(b.id.replace('tab-', ''));
+  });
+  $('actions').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-act]');
+    if (!b) return;
+    if (b.getAttribute('data-act') === 'move') { K.toast(sel + ' 재배정 요청을 남겼습니다'); return; }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(sel).then(function () { K.toast(sel + ' 복사됨'); }, function () { K.toast('복사하지 못했습니다. ID 를 직접 선택하세요'); });
+    } else { K.toast('이 주소에서는 복사할 수 없습니다. ID 를 직접 선택하세요'); }
+  });
+  $('back').addEventListener('click', function () { $('list').scrollIntoView({ block: 'start' }); });
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -4,40 +4,55 @@
 
 사용:
   python3 scripts/scaffold.py --stages clean,rules,intervals   # run.py + core/(config·load·pipeline·report + 단계 모듈)
+  python3 scripts/scaffold.py --stages 계약 판정                # 공백·쉼표 둘 다 된다. 한글 이름도 파이썬 모듈 이름이면 된다
   python3 scripts/scaffold.py --package alarm --stages clean,rules
   python3 scripts/scaffold.py --dry-run --stages clean           # 만들 파일만 출력
 
+이름 규칙: 글자로 시작하는 파이썬 이름(영문 소문자·한글·숫자·밑줄, 예 judge · 판정 · rule_tz). 대문자·하이픈·공백·
+예약어(config·load·pipeline·report·test·tests·scripts·data·out)는 안 된다. debug 폴더는 같은 이름으로 NN_<단계>(예 02_판정).
 규칙(AGENTS.md 4절 코드 구조): PLAN.md 4번 단계 하나 = 모듈 하나(core/<단계>.py) = tests/test_<단계>.py.
+tests/test_<단계>.py 는 만들지 않는다 — $rule-loop ① 표 승인 뒤 그 단계 테스트를 쓴다(빈 테스트 파일을 두지 않는다).
 읽기(load.py)·쓰기(report.py)는 계산과 분리하고, 상수는 config.py 에 출처와 함께 둔다.
 이미 있는 파일은 덮어쓰지 않는다(건너뛴 파일을 출력). 만든 직후 `python3 run.py` 가 data/*.csv 를 읽어
 out/result.csv·out/summary.json 을 쓴다 — 과제 README 의 출력 이름·열로 config.py 와 report.py 를 맞춘다.
+run.py 의 입력 폴더 기본값은 환경변수 INPUT_DIR(없으면 config.INPUT_DIR='data') — check_contract.py 의 변형 검사(M층)가 이 규약에 기댄다.
 
-exit 0 성공(건너뛴 파일 포함) / 1 이름이 잘못됨
+exit 0 성공(건너뛴 파일 포함) / 1 이름이 잘못됨 / 2 인자 오류
 """
 import argparse
+import keyword
 import os
-import re
 import sys
+import unicodedata
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:  # noqa
     pass
 
-NAME_RE = re.compile(r'^[a-z][a-z0-9_]*$')
 RESERVED = {'config', 'load', 'pipeline', 'report', 'test', 'tests', 'scripts', 'data', 'out'}
+NAME_HINT = '글자로 시작하는 파이썬 이름(영문 소문자·한글·숫자·밑줄, 예 judge · 판정 · rule_tz), 예약어(%s) 제외' % ', '.join(sorted(RESERVED))
 
 RUN_PY = '''#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """명령 한 줄 입구: 입력 폴더를 읽어 파이프라인을 돌리고 결과 파일을 쓴다.
 
 실행: python3 run.py [--input-dir data] [--out-dir out]
+입력 폴더 기본값은 환경변수 INPUT_DIR, 없으면 config.INPUT_DIR — check_contract.py 변형 검사(M층)가 INPUT_DIR 로 바꿔 돌린다.
 계산은 {pkg}/ 패키지에 있다(단계 하나 = 모듈 하나). 이 파일은 인자 읽기 → solve() → 쓰기만 한다.
 """
 import argparse
+import os
 import sys
 
 from {pkg} import config, load, pipeline, report
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:  # noqa
+    pass
 
 
 def main(argv=None):
@@ -48,7 +63,7 @@ def main(argv=None):
     실패: 입력 폴더·파일·열 문제는 ValueError/OSError 를 받아 다음 행동 한 줄과 함께 1을 돌려준다
     """
     ap = argparse.ArgumentParser(description='입력 폴더 → 결과 파일')
-    ap.add_argument('--input-dir', default=config.INPUT_DIR)
+    ap.add_argument('--input-dir', default=os.environ.get('INPUT_DIR') or config.INPUT_DIR)
     ap.add_argument('--out-dir', default=config.OUT_DIR)
     args = ap.parse_args(argv)
     try:
@@ -222,6 +237,31 @@ def plan_files(pkg, stages):
     return files
 
 
+def valid_name(name):
+    """모듈 이름으로 쓸 수 있는지 본다.
+
+    입력: name — 패키지·단계 이름(NFKC 로 맞춘 뒤)
+    출력: True/False — 글자(영문 소문자·한글 등)로 시작하는 파이썬 이름, 영문 대문자 없음, 키워드·예약어 아님
+    """
+    return (bool(name) and name.isidentifier() and name[0].isalpha() and not keyword.iskeyword(name)
+            and not any('A' <= ch <= 'Z' for ch in name) and name not in RESERVED)
+
+
+def split_stages(values):
+    """--stages 값들을 단계 이름 목록으로 바꾼다(공백·쉼표 둘 다 구분자).
+
+    입력: values — argparse 가 준 문자열 목록(예 ['계약', '판정'] 또는 ['clean,rules'])
+    출력: 이름 목록(순서 유지, NFKC 정규화 — 같은 글자가 다른 바이트로 들어와도 import 와 파일 이름이 맞게)
+    """
+    names = []
+    for v in values or []:
+        for part in v.replace('，', ',').split(','):
+            part = unicodedata.normalize('NFKC', part.strip())
+            if part:
+                names.extend(part.split())
+    return names
+
+
 def validate(pkg, stages):
     """패키지·단계 이름을 검사한다.
 
@@ -229,11 +269,11 @@ def validate(pkg, stages):
     출력: 문제 문자열 목록(비어 있으면 통과)
     """
     errors = []
-    if not NAME_RE.match(pkg) or pkg in RESERVED:
-        errors.append('패키지 이름은 소문자·숫자·밑줄, 예약어(%s) 제외: %r' % (', '.join(sorted(RESERVED)), pkg))
+    if not valid_name(pkg):
+        errors.append('패키지 이름은 %s: %r' % (NAME_HINT, pkg))
     for s in stages:
-        if not NAME_RE.match(s) or s in RESERVED:
-            errors.append('단계 이름은 소문자·숫자·밑줄, 예약어 제외: %r' % s)
+        if not valid_name(s):
+            errors.append('단계 이름은 %s: %r' % (NAME_HINT, s))
     if len(set(stages)) != len(stages):
         errors.append('단계 이름이 중복됨: %s' % ', '.join(stages))
     return errors
@@ -268,11 +308,13 @@ def main(argv=None):
     """
     ap = argparse.ArgumentParser(description='과제 코드 뼈대(run.py + 단계별 모듈) 만들기 — 있는 파일은 덮어쓰지 않음')
     ap.add_argument('--package', default='core', help='계산 패키지 이름(기본 core)')
-    ap.add_argument('--stages', default='', help='PLAN 4번 단계 모듈 이름, 쉼표로(예: clean,rules,intervals)')
+    ap.add_argument('--stages', nargs='+', default=[], metavar='단계',
+                    help='PLAN 4번 단계 모듈 이름, 공백 또는 쉼표로(예: 계약 판정 · clean,rules,intervals)')
     ap.add_argument('--root', default='.', help='작업 폴더(기본: 현재 폴더)')
     ap.add_argument('--dry-run', action='store_true', help='만들 파일만 출력')
     args = ap.parse_args(argv)
-    stages = [s.strip() for s in args.stages.split(',') if s.strip()]
+    stages = split_stages(args.stages)
+    args.package = unicodedata.normalize('NFKC', args.package.strip())
     errors = validate(args.package, stages)
     if errors:
         for e in errors:
@@ -287,8 +329,11 @@ def main(argv=None):
             print('  → %s/pipeline.py 의 STAGES 에 새 단계를 직접 더하세요: %s' % (
                 args.package, ', '.join("('%s', %s.apply)" % (s, s) for s in stages)))
     if not args.dry_run and made:
-        print('다음: python3 run.py → out/ 확인 · config.py 의 출력 이름·열을 README 에 맞춤 · '
-              'tests/test_template.py 의 ENTRY 를 %s.pipeline.solve 로' % args.package)
+        print('다음: python3 run.py → out/ 확인 · config.py 의 출력 이름·열을 README 에 맞춤')
+        print('  · tests/test_template.py 의 ENTRY 를 %s.pipeline.solve 로 바꾸면 SAMPLE·예시 테스트도 과제 입력 모양'
+              '({표 이름: [행…]})으로 바꾼다(TestContract 3개는 SAMPLE 만 바꿔 유지)' % args.package)
+        print('  · tests/test_<단계>.py 는 $rule-loop ① 표 승인 뒤 만든다 · debug 폴더는 NN_<단계>(예 %s)'
+              % ('01_' + stages[0] if stages else '01_판정'))
     return 0
 
 

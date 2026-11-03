@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 """ui_check.py — 브라우저 없이 HTML 화면의 구조·접근성·토큰 준수·대비를 점검한다 (표준 라이브러리만, Python 3.9).
 
-  python3 design-kit/ui_check.py http://127.0.0.1:8000/kit.html
-  python3 design-kit/ui_check.py http://127.0.0.1:8000/templates/dashboard.html http://127.0.0.1:8000/templates/mobile.html
-  python3 design-kit/ui_check.py design-kit/templates/landing.html          # 파일 경로도 된다
+  python3 design-kit/ui_check.py http://127.0.0.1:8100/kit.html                    # serve.py 기본 8100(앱 화면은 앱 포트)
+  python3 design-kit/ui_check.py http://127.0.0.1:8100/templates/dashboard.html http://127.0.0.1:8100/templates/mobile.html
+  python3 design-kit/ui_check.py design-kit/templates/tool.html             # 파일 경로도 된다
   python3 design-kit/ui_check.py URL --tokens design-kit/tokens.css          # 토큰 파일을 직접 지정
+  python3 design-kit/ui_check.py URL --final                                 # 최종 점검: 그림 자리 초안이 남으면 FAIL
 
 검사 항목 (결과 PASS / WARN / FAIL, FAIL 이 하나라도 있으면 exit 1)
   구조   viewport meta · <html lang> · <title> · h1 정확히 1개 · 제목 단계 건너뜀(h2→h4) 없음 · 제목 트리 출력
@@ -13,11 +14,17 @@
   토큰   raw hex 가 tokens.css 밖(인라인 style·<style>·링크된 다른 CSS)에 쓰였는지 · var(--x) 가 정의돼 있는지
   문구   금지어(lorem·ipsum·미완성 표식) · AI 티(전부 대문자 제목·버튼/링크 꼬리 '→')
   반응형 고정 width ≥ 1000px · min-width ≥ 400px (max-width 는 제외)
-  Floor  Hallmark "The Floor" 정적 5규칙 — 모두 WARN, 기준은 .agents/skills/ui-audit/references/hallmark-floor.md
+  Floor  Hallmark "The Floor" 정적 5규칙 — 모두 WARN, 기준은 .agents/skills/web-ui/references/hallmark-floor.md
          transition 에 all·width·height·top·left · width/min-width 의 100vw(max-width 는 제외) ·
          같은 선언 블록의 uppercase(또는 small-caps)+양수 letter-spacing · 띄어쓴 가운뎃점(A · B)으로 이은 메타 문자열이
          3개 요소 이상(한국어 나열 '수율·가동률'은 띄지 않아 제외) · .card 안의 .card(.card.flat 안쪽은 허용)
-  외부   http(s) 자원(link/script/img/iframe/source, CSS url()) → FAIL, <a href=http> → WARN
+  그림   .figure 초안(img·svg 없음) 개수 보고, --final 이면 하나라도 남을 때 FAIL(.figure.is-final.mask 는 style 의 url() 이 있으면 최종)
+  장식   점 배지(.badge.live·.dot) 8개 초과 WARN · .why 설명줄 잔존 WARN · 지운 장식 클래스(bezel·glass·glow·pill·media·arrow·lift) 잔존 WARN
+  외부   http(s) 주소의 자원(link/script/img/iframe/source/object/svg use, CSS url()·@import) → FAIL, <a href> 외부 → WARN.
+         로컬 경로(img/01.png, illustrations/*.svg, icons.svg#i-…)는 허용
+  로컬   script src · img/source/iframe src · svg use 의 파일 · K.load('…') 첫 인자를 페이지 위치 기준(브라우저와 같은 urljoin)으로
+         풀어 404·없는 파일이면 FAIL(템플릿을 static/ 으로 옮긴 뒤 ../ 가 남은 사고). 파일 경로로 검사할 때 '/' 로 시작하는
+         경로는 URL 로 검사해야 해서 건너뛴다. data:·#조각만·템플릿 자리({{ }}·${ })도 건너뛴다
   대비   tokens.css 의 글자/배경 쌍 WCAG 상대휘도 대비 ≥ 4.5 PASS / ≥ 3.0 WARN / 미만 FAIL (hex 토큰만 계산)
 한계: JS 로 렌더되는 DOM 은 보지 못한다(템플릿의 정적 골격만 검사). 시각 확인은 HUMAN_CHECK 로 보완한다.
 """
@@ -32,6 +39,7 @@ from html.parser import HTMLParser
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:  # noqa
     pass
 
@@ -42,7 +50,11 @@ VAR_DEF_RE = re.compile(r'(--[A-Za-z0-9_-]+)\s*:')
 DECL_BODY_RE = re.compile(r'\{([^{}]*)\}')
 WIDTH_RE = re.compile(r'(?<![\w-])(?<!max-)(min-)?width\s*:\s*(\d+(?:\.\d+)?)px', re.I)
 URL_RE = re.compile(r'url\(\s*["\']?(https?://[^)"\']+)', re.I)
-# Floor 규칙(ui-audit): 선언 블록 단위로 본다. Hallmark sloplint.mjs 의 10a·34·67·63·4 정적 검사와 같은 기준.
+IMPORT_RE = re.compile(r'@import\s+["\'](https?://[^"\']+)', re.I)
+REMOTE_RE = re.compile(r'^\s*https?:/{2}', re.I)         # 외부 판정은 http(s) 주소만(로컬 그림·아이콘은 허용)
+REMOVED_CLASSES = ('bezel', 'glass', 'glow', 'pill', 'media', 'arrow', 'lift')   # 키트에서 지운 장식 어휘
+DOT_BADGE_MAX = 8
+# Floor 규칙(web-ui): 선언 블록 단위로 본다. Hallmark sloplint.mjs 의 10a·34·67·63·4 정적 검사와 같은 기준.
 CAPS_RE = re.compile(r'text-transform\s*:\s*uppercase|font-variant(?:-caps)?\s*:\s*[^;]*small-caps', re.I)
 TRACK_RE = re.compile(r'letter-spacing\s*:\s*\+?(\d*\.?\d+)\s*(?:em|rem|px|ch|%)', re.I)   # 양수만(-.02em 은 제목 자간 조임)
 VW_RE = re.compile(r'(?<![\w.-])100vw(?![\w-])', re.I)
@@ -50,6 +62,9 @@ RULE_RE = re.compile(r'([^{}]*)\{([^{}]*)\}')            # (선택자, 선언 �
 COMMENT_RE = re.compile(r'/\*.*?\*/', re.S)
 MIDDOT_RE = re.compile(r'\S\s[·•]\s\S')               # 'A · B' 처럼 띄어쓴 가운뎃점만(한국어 나열 '수율·가동률' 은 제외)
 TRANSITION_LAYOUT = ('all', 'width', 'height', 'top', 'left')
+LOAD_RE = re.compile(r'''\bK\.load\(\s*(['"])([^'"]+)\1''')   # kit.js K.load('…') 의 첫 인자(문자열을 그대로 쓴 것만)
+LOCAL_SKIP_RE = re.compile(r'^(?:data|blob|javascript|mailto|about|tel):', re.I)
+LOCAL_MAX = 40   # 한 페이지에서 확인하는 로컬 경로 수 상한(중복 제외)
 # 금지어 — preflight.py 의 자체 스캔에 잡히지 않도록 조각을 이어 붙여 만든다.
 BANNED_FAIL = ['lorem', 'ipsum', 'TO' + 'DO', 'FIX' + 'ME', '미' + '구현', 'T' + 'BD', 'place' + 'holder text']
 BANNED_WARN = ['여기에 내용', '샘플 텍스트', 'coming soon', 'under construction']
@@ -58,6 +73,11 @@ CONTRAST_PAIRS = [
     ('--ok', '--ok-bg'), ('--warn', '--warn-bg'), ('--bad', '--bad-bg'), ('--info', '--info-bg'), ('--off', '--off-bg'),
     ('--brand-deep', '--brand-soft'), ('--brand-deep', '--panel'), ('--on-brand', '--brand'), ('--on-ink', '--ink'),
 ]
+
+
+def is_remote(url):
+    """http(s) 주소이면 True. 상대·절대 로컬 경로와 data: 는 False."""
+    return bool(REMOTE_RE.match(url or ''))
 
 
 class Page(HTMLParser):
@@ -82,10 +102,16 @@ class Page(HTMLParser):
         self.script_blocks = []
         self.stylesheets = []    # href
         self.external = []       # (tag, url)
+        self.local_refs = []     # (tag, 경로) — script src·img src·use href 등 로컬 자원('local asset' 검사)
         self.ext_links = []      # a href http
         self.text_parts = []     # 본문 텍스트(스크립트·스타일 제외)
         self.middot = []         # 띄어쓴 가운뎃점 메타 문자열을 가진 요소(가장 안쪽 1개만)
         self.nested_cards = []   # .card 안의 .card(.flat 제외)
+        self.figures = []        # {'final', 'media', 'caption'} — .figure 그림 자리
+        self.why = 0             # .why 설명줄 개수
+        self.removed = []        # 지운 장식 클래스
+        self.badges = 0
+        self.dot_badges = 0      # 점이 붙는 배지(.badge.live, .badge.dot, 배지 안 .dot)
         self._in_raw = None
 
     def _attrs(self, attrs):
@@ -96,21 +122,31 @@ class Page(HTMLParser):
         a = self._attrs(attrs)
         if tag in ('style', 'script'):
             self._in_raw = tag
-            if tag == 'script' and a.get('src', '').startswith(('http://', 'https://')):
+            if tag == 'script' and is_remote(a.get('src', '')):
                 self.external.append((tag, a['src']))
+            elif tag == 'script' and a.get('src'):
+                self.local_refs.append((tag, a['src']))
         if tag == 'html':
             self.lang = a.get('lang')
         elif tag == 'meta' and a.get('name', '').lower() == 'viewport':
             self.viewport = a.get('content', '')
         elif tag == 'link':
             href = a.get('href', '')
-            if href.startswith(('http://', 'https://')):
+            if is_remote(href):
                 self.external.append((tag, href))
             elif 'stylesheet' in a.get('rel', '').lower():
                 self.stylesheets.append(href)
+        elif tag in ('use', 'image', 'object'):
+            ref = a.get('href') or a.get('xlink:href') or a.get('data', '')
+            if is_remote(ref):
+                self.external.append((tag, ref))
+            elif ref:
+                self.local_refs.append((tag, ref))
         elif tag in ('img', 'iframe', 'source', 'video', 'audio', 'embed'):
-            if a.get('src', '').startswith(('http://', 'https://')):
+            if is_remote(a.get('src', '')):
                 self.external.append((tag, a['src']))
+            elif a.get('src'):
+                self.local_refs.append((tag, a['src']))
             if tag == 'img':
                 self.imgs.append(a)
         elif tag == 'svg':
@@ -127,17 +163,36 @@ class Page(HTMLParser):
             self.tables.append(False)
         elif tag == 'thead' and self.tables:
             self.tables[-1] = True
-        elif tag == 'a' and a.get('href', '').startswith(('http://', 'https://')):
+        elif tag == 'a' and is_remote(a.get('href', '')):
             self.ext_links.append(a['href'])
         if a.get('style'):
             self.inline_styles.append((tag, a['style']))
         classes = a.get('class', '').split()
         if 'card' in classes and 'flat' not in classes and any('card' in s[1].get('class', '').split() for s in self.stack):
-            # .card.flat 은 키트가 중첩용으로 둔 변형(kit.html '.card.flat — 링만. 중첩 카드용')이라 제외한다
+            # .card.flat 은 키트가 중첩용으로 둔 변형(components.css '.card.flat — 중첩용')이라 제외한다
             self.nested_cards.append('%s.%s' % (tag, '.'.join(classes)[:30]))
+        if 'why' in classes:
+            self.why += 1
+        self.removed.extend(c for c in classes if c in REMOVED_CLASSES)
+        if 'badge' in classes:
+            self.badges += 1
+            if 'live' in classes or 'dot' in classes:
+                self.dot_badges += 1
+        elif 'dot' in classes and any('badge' in s[1].get('class', '').split() for s in self.stack):
+            self.dot_badges += 1
+        if tag in ('img', 'svg', 'picture', 'object', 'video'):
+            for s in reversed(self.stack):   # 가장 가까운 .figure 조상에 그림이 들어 있다고 표시
+                if s[4] is not None:
+                    self.figures[s[4]]['media'] = True
+                    break
+        fig = None
+        if tag == 'figure' and 'figure' in classes:
+            mask = 'mask' in classes and 'url(' in a.get('style', '')
+            self.figures.append({'final': 'is-final' in classes, 'media': mask, 'caption': ''})
+            fig = len(self.figures) - 1
         if tag in VOID:
             return
-        self.stack.append([tag, a, [], False])   # [태그, 속성, 텍스트 조각, 자손이 가운뎃점 메타로 집계됨]
+        self.stack.append([tag, a, [], False, fig])   # [태그, 속성, 텍스트 조각, 자손이 가운뎃점 메타로 집계됨, .figure 번호]
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -162,8 +217,10 @@ class Page(HTMLParser):
             self._close(el, self.stack[-1] if self.stack else None)
 
     def _close(self, el, parent=None):
-        tag, a, parts, seen = el
+        tag, a, parts, seen = el[:4]
         text = re.sub(r'\s+', ' ', ''.join(parts)).strip()
+        if tag == 'figcaption' and parent is not None and parent[4] is not None:
+            self.figures[parent[4]]['caption'] = text[:40]
         if not seen and tag != 'title' and MIDDOT_RE.search(text):
             cls = a.get('class', '').split()
             self.middot.append('%s%s: %s' % (tag, ('.' + cls[0]) if cls else '', text[:30]))
@@ -194,7 +251,7 @@ class Page(HTMLParser):
 # ---------------------------------------------------------------- 입력 읽기
 def read_target(target, timeout=5):
     """URL 또는 파일 경로 → (텍스트, base). base 는 상대 경로 해석용(URL 이면 URL, 파일이면 폴더)."""
-    if target.startswith(('http://', 'https://')):
+    if is_remote(target):
         with urllib.request.urlopen(target, timeout=timeout) as r:
             return r.read().decode('utf-8', 'replace'), target
     with open(target, 'r', encoding='utf-8', errors='replace') as fh:
@@ -204,7 +261,7 @@ def read_target(target, timeout=5):
 def read_relative(base, href, timeout=5):
     """페이지 기준 상대 경로의 CSS 를 읽는다. 못 읽으면 None."""
     try:
-        if base.startswith(('http://', 'https://')):
+        if is_remote(base):
             url = urllib.parse.urljoin(base, href)
             with urllib.request.urlopen(url, timeout=timeout) as r:
                 return r.read().decode('utf-8', 'replace')
@@ -216,6 +273,33 @@ def read_relative(base, href, timeout=5):
 
 
 # ---------------------------------------------------------------- 대비 계산 (WCAG 2.x 상대휘도)
+def local_target(ref):
+    """로컬 자원 참조 → 확인할 경로 부분('#조각' 제거). 확인하지 않는 것(빈 값·#만·data: 등·템플릿 자리 {{ }}·${ })은 ''."""
+    part = (ref or '').split('#', 1)[0].strip()
+    if not part or LOCAL_SKIP_RE.match(part) or '{' in part:
+        return ''
+    return part
+
+
+def asset_status(base, part, timeout=5):
+    """페이지 기준(base)으로 로컬 자원 하나를 확인한다. URL 이면 브라우저와 같은 urljoin 으로 풀어 GET, 파일이면 경로를 본다.
+    출력: 'ok' / 'missing'(404·410 또는 파일 없음) / 'unknown'(연결 실패 등 확인 못 함) / 'skip'(파일 모드의 '/' 시작 경로)"""
+    if is_remote(base):
+        try:
+            with urllib.request.urlopen(urllib.parse.urljoin(base, part), timeout=timeout):
+                return 'ok'
+        except urllib.error.HTTPError as e:
+            code = e.code
+            e.close()
+            return 'missing' if code in (404, 410) else 'ok'   # 400·405 등은 경로가 있는 것(동작 검사는 smoke_web)
+        except Exception:  # noqa
+            return 'unknown'
+    clean = urllib.parse.unquote(part.split('?', 1)[0])
+    if clean.startswith('/'):
+        return 'skip'
+    return 'ok' if os.path.exists(os.path.normpath(os.path.join(base, clean))) else 'missing'
+
+
 def hex_to_rgb(h):
     h = h.lstrip('#')
     if len(h) in (3, 4):
@@ -264,7 +348,7 @@ def declarations(body):
 
 
 # ---------------------------------------------------------------- 검사
-def check_page(target, tokens_override=None):
+def check_page(target, tokens_override=None, final=False):
     results = []
 
     def rec(name, status, detail=''):
@@ -379,7 +463,25 @@ def check_page(target, tokens_override=None):
             if (m.group(1) and float(m.group(2)) >= 400) or (not m.group(1) and float(m.group(2)) >= 1000)]
     rec('no fixed/min width', 'PASS' if not wide else 'WARN', ', '.join(sorted(set(wide))[:5]) if wide else 'width≥1000 · min-width≥400 없음')
 
-    # --- Floor (Hallmark The Floor 정적 5규칙, 모두 WARN — .agents/skills/ui-audit/references/hallmark-floor.md)
+    # --- 그림 자리 (.figure 초안 → 최종). 초안은 img·svg 가 없는 .figure
+    drafts = [f for f in p.figures if not f['media']]
+    fig_detail = '초안 %d개 / 그림 자리 %d개' % (len(drafts), len(p.figures))
+    if drafts:
+        fig_detail += ': ' + ' | '.join((f['caption'] or '(캡션 없음)') for f in drafts[:2])
+    if final:
+        rec('figure final', 'FAIL' if drafts else 'PASS', fig_detail + ('' if drafts else ' (전부 img/svg 로 교체됨)'))
+    else:
+        rec('figure final', 'PASS', fig_detail + (' (최종 점검은 --final)' if drafts else ''))
+
+    # --- 장식 잔재 (모두 WARN)
+    rec('dot badges <= 8', 'PASS' if p.dot_badges <= DOT_BADGE_MAX else 'WARN',
+        '점 배지 %d개 / 배지 %d개 (점은 실시간 표시 1곳 권장)' % (p.dot_badges, p.badges))
+    rec('no .why line', 'PASS' if not p.why else 'WARN',
+        ('.why 설명줄 %d개 (섹션마다 설명줄을 두지 않는다)' % p.why) if p.why else '.why 없음')
+    rec('no removed class', 'PASS' if not p.removed else 'WARN',
+        ('지운 장식 클래스: %s' % ', '.join(sorted(set(p.removed)))) if p.removed else '지운 장식 클래스 없음')
+
+    # --- Floor (Hallmark The Floor 정적 5규칙, 모두 WARN — .agents/skills/web-ui/references/hallmark-floor.md)
     trans, vw, caps = [], [], []
     for sel, body in css_blocks(p, other_css):
         for prop, val in declarations(body):
@@ -405,10 +507,36 @@ def check_page(target, tokens_override=None):
         ('.card 안에 .card %d개: %s' % (len(p.nested_cards), ', '.join(p.nested_cards[:3]))) if p.nested_cards else '.card 중첩 없음 (.card.flat 안쪽은 허용)')
 
     # --- 외부 자원
-    ext = ['%s:%s' % (t, u[:50]) for t, u in p.external] + ['css:%s' % u[:50] for u in URL_RE.findall(all_css)]
+    raw_css = COMMENT_RE.sub(' ', '\n'.join(p.style_blocks + [t for _, t in other_css] + [st for _, st in p.inline_styles]))
+    ext = ['%s:%s' % (t, u[:50]) for t, u in p.external] + \
+        ['css:%s' % u[:50] for u in sorted(set(URL_RE.findall(raw_css) + IMPORT_RE.findall(raw_css)))]
     rec('no external asset', 'PASS' if not ext else 'FAIL', ', '.join(ext[:3]) if ext else '외부 http(s) 자원 없음')
     if p.ext_links:
         rec('external links', 'WARN', '%d개 <a href=http> (시험장에서 열리지 않음)' % len(p.ext_links))
+
+    # --- 로컬 자원: 페이지 위치 기준으로 풀어 404·없는 파일을 잡는다(css 는 위 'css load')
+    refs = list(p.local_refs) + [('K.load', m[1]) for blk in p.script_blocks for m in LOAD_RE.findall(blk)]
+    seen, missing, unknown, skipped = [], [], [], 0
+    for _, ref in refs:
+        part = local_target(ref)
+        if not part or part in seen or len(seen) >= LOCAL_MAX:
+            continue
+        seen.append(part)
+        st = asset_status(base, part)
+        if st == 'missing':
+            missing.append(part)
+        elif st == 'unknown':
+            unknown.append(part)
+        elif st == 'skip':
+            skipped += 1
+    skip_note = (' · 파일 경로로 검사해 / 로 시작하는 %d개는 건너뜀(URL 로 검사)' % skipped) if skipped else ''
+    if missing:
+        rec('local asset', 'FAIL', '%d개 없음: %s — 페이지 위치 기준 경로로 고친다(템플릿을 옮겼으면 ../ 확인)%s'
+            % (len(missing), ', '.join(missing[:4]), skip_note))
+    elif unknown:
+        rec('local asset', 'WARN', '%d개 확인 못 함(연결 실패): %s%s' % (len(unknown), ', '.join(unknown[:4]), skip_note))
+    else:
+        rec('local asset', 'PASS', ('%d개 경로 있음%s' % (len(seen), skip_note)) if seen else '로컬 자원 참조 없음')
 
     # --- 대비
     if tokens_css:
@@ -438,10 +566,11 @@ def main():
     ap.add_argument('targets', nargs='+', help='URL 또는 HTML 파일 경로')
     ap.add_argument('--tokens', default=None, help='tokens.css 경로를 직접 지정')
     ap.add_argument('--no-tree', action='store_true', help='제목 트리 출력 생략')
+    ap.add_argument('--final', action='store_true', help='최종 점검: img/svg 가 없는 .figure 가 남으면 FAIL')
     a = ap.parse_args()
     any_fail = False
     for t in a.targets:
-        results, tree = check_page(t, a.tokens)
+        results, tree = check_page(t, a.tokens, final=a.final)
         print('=== %s' % t)
         print('%-28s %-5s %s' % ('CHECK', 'RESULT', 'DETAIL'))
         for n, st, d in results:
