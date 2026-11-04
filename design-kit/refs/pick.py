@@ -103,7 +103,7 @@ def usage():
     for tag, num, words in TYPES:
         print('  %d %s — %s' % (num, tag, '·'.join(w for w in words[1:] if not w.isascii())))
     print('예: pick.py 대시보드 / pick.py 모바일 금융 / pick.py 조회 차분')
-    print('다음: 후보 2~3개만 열어 후보마다 시안 1개(INDEX.md 쓰는 법 2)')
+    print('다음: 후보 5개를 열어 후보마다 시안 1개 = md N + 배치 N(INDEX.md 쓰는 법 2)')
 
 
 def main(argv=None):
@@ -126,7 +126,7 @@ def main(argv=None):
     print('후보 %d개 — 유형: %s · 키워드: %s' % (len(found), ', '.join(types) or '-', ' '.join(rest) or '-'))
     for r in found:
         print('%s · %s · %s · %s · %sKB' % (shown(r['path']), r['service'], ', '.join(r['tags']), r['mood'], r['kb']))
-    print('다음: 2~3개만 열어 후보마다 시안 1개(INDEX.md 쓰는 법 2)')
+    print('다음: 5개를 열어 후보마다 시안 1개 = md N + 배치 N(INDEX.md 쓰는 법 2)')
     return 0
 
 

@@ -10,7 +10,7 @@
 | 2 | `transition: all` 금지. `width`·`height`·`top`·`left` 를 애니메이션하지 않는다 (10a) | ui_check `no transition all`. 시간만 적은 `transition: .25s`(키트 `.toast`)는 못 잡는다 → 새로 쓰지 않고, 보이면 사람이 본다 |
 | 3 | 로만체 제목 안에 이탤릭 한 단어 금지 (38i) | 사람이 본다. 키트 CSS 에 이탤릭이 없어 새로 넣지 않으면 생기지 않는다 |
 | 4 | `html`·`body` 에 `overflow-x: clip`. `hidden` 도 `100vw` 도 금지 (34) | ui_check `no 100vw width`(width/min-width 만 — `max-width` 의 100vw 는 가로 스크롤을 못 만든다). 가로 스크롤 자체는 HUMAN_CHECK 4번 |
-| 5 | 이미지 든 그리드 트랙은 `minmax(0, 1fr)`, 큰 제목에 `overflow-wrap: break-word; min-width: 0` (50) | 사람이 본다(390px). web-ui SKILL.md ⑤ 의 처방 `minmax(0,…)`·`overflow-x:auto` |
+| 5 | 이미지 든 그리드 트랙은 `minmax(0, 1fr)`, 큰 제목에 `overflow-wrap: break-word; min-width: 0` (50) | 사람이 본다(834·390px). web-ui SKILL.md ⑤ 의 처방 `minmax(0,…)`·`overflow-x:auto` |
 | 6 | 모든 상호작용 요소에 `:focus-visible` 링, 즉시 표시 (26a, 15) | 해당 없음 — base.css:27 전역 `:focus-visible` 링. `outline: none` 을 새로 쓰지 않으면 유지 |
 | 7 | 모든 애니메이션에 `prefers-reduced-motion: reduce` 폴백, 스크립트를 꺼도 내용이 보인다 (27, 62) | 해당 없음 — base.css:93 전역 폴백. JS 렌더 템플릿은 빈 상태 글자가 먼저 보이는지 사람이 본다 |
 | 8 | 지어낸 지표·추천사·로고 벽·사례 수 금지 (46a) | 사람이 본다 — AGENTS 절대 규칙 2(수치는 코드로, 없는 값은 '확인 필요') |

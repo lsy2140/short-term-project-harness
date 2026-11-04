@@ -1,4 +1,4 @@
-/* design-kit/base.css — reset · 평면 바탕 · 한글 keep-all · 도구 화면 타이포 · 레이아웃 프리미티브 · 미디어쿼리 1024/640
+/* design-kit/base.css — reset · 평면 바탕 · 한글 keep-all · 도구 화면 타이포 · 레이아웃 프리미티브 · 반응형 3구간: 데스크톱 ≥1025 / 태블릿 641–1024 / 모바일 ≤640 (캡처 1280·834·390)
    선행: tokens.css. 이 파일에는 raw hex 가 없다(전부 var). 광원·그라디언트·섹션 세로 바 없음. */
 
 /* ---------- reset ---------- */
@@ -64,9 +64,10 @@ main { padding-bottom: var(--s-8); }
 .hero .lead { margin-bottom: var(--s-5); }
 @media (min-width: 1025px) { .hero { grid-template-columns: 1.1fr .9fr; } }
 
-/* ---------- 반응형: 1024 / 640 두 개로 끝 ---------- */
+/* ---------- 반응형 3구간: 데스크톱 ≥1025 / 태블릿 641–1024 / 모바일 ≤640 (캡처 1280·834·390). 미디어쿼리는 1024 / 640 두 개로 끝 ---------- */
 @media (max-width: 1024px) {
-  .split, .split.even { grid-template-columns: 1fr; }
+  .split, .split.even { grid-template-columns: 1fr; }   /* 태블릿: 상세가 목록 아래로 */
+  .cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* 태블릿 2열(640 이하는 아래 1열) */
   .hide-md { display: none !important; }
 }
 @media (max-width: 640px) {

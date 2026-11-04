@@ -33,7 +33,7 @@ Then start `codex` in the project folder and send `$kickoff`. Once the stakehold
 - Only the human runs `python3 scripts/preflight.py --freeze`.
 - Agents are opened by the human, one terminal each (`A_core`, `B_web`, `C_verify`). Each reads its own `work/agents/<name>.md`. No subagents or forks.
 - `$plan` also writes the hand-off table (PLAN section 4-2). When an agent reports `연결 N` (hand-off N), you pass it to the receiving window with the hand-off prompt in `docs/prompts.md`.
-- Web tasks: `$web-ui 시안` shortlists 2-3 reference DESIGN.md files, makes one mock-up per candidate (an image if image generation works, otherwise an HTML page) and waits. You answer `시안 N 선택` (pick N) or `시안 생략` (keep the kit tokens); it writes `design-kit/DESIGN_과제.md`, then `$web-ui 초안` builds the first page from the kit templates and `$web-ui 최종` adds the final figures after the freeze.
+- Web tasks: `$web-ui 시안` shortlists 5 reference DESIGN.md files, makes one mock-up per candidate (an image if image generation works, otherwise an HTML page), each with a different layout (5 layout types) and 1-2 illustration slots, and waits. You answer `시안 N 선택` (pick N) or `시안 생략` (keep the kit tokens); it writes `design-kit/DESIGN_과제.md` and moves the other 4 mock-ups to `.tmp/draft/`, then `$web-ui 초안` builds the first page from the kit templates and `$web-ui 최종` adds the final figures (at most 5, generated with the built-in image tool) after the freeze. Screenshots are taken at desktop/tablet/mobile widths (1280/834/390).
 - For an independent review, open `codex -s read-only` and paste the prompt from `docs/judge_simulation.md`.
 
 ```bash

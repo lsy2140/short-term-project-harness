@@ -27,6 +27,7 @@
          경로는 URL 로 검사해야 해서 건너뛴다. data:·#조각만·템플릿 자리({{ }}·${ })도 건너뛴다
   대비   tokens.css 의 글자/배경 쌍 WCAG 상대휘도 대비 ≥ 4.5 PASS / ≥ 3.0 WARN / 미만 FAIL (hex 토큰만 계산)
 한계: JS 로 렌더되는 DOM 은 보지 못한다(템플릿의 정적 골격만 검사). 시각 확인은 HUMAN_CHECK 로 보완한다.
+      뷰포트별 배치(가로 스크롤·겹침·열 접힘)는 검사하지 않는다 → screenshots 3장(1280·834·390) + HUMAN_CHECK 로 확인한다.
 """
 import argparse
 import os

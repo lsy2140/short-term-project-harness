@@ -1,10 +1,10 @@
 # refs/INDEX.md — 서비스별 디자인 참고 md 목록 (색·서체·분위기 후보)
 
-## 쓰는 법 (INDEX 만 읽고 후보 2~3개만 연다 — 원문은 한 개 21~142KB)
-1. 유형 1개(REFERENCE.md) → `python3 design-kit/refs/pick.py <유형|키워드 …>` 로 후보 2~3개
+## 쓰는 법 (INDEX 만 읽고 후보 5개만 연다 — 원문은 한 개 21~142KB)
+1. 유형 1개(REFERENCE.md) → `python3 design-kit/refs/pick.py <유형|키워드 …>` 로 후보 5개(시안 N = md N + 배치 N)
 2. 후보마다 시안 1개: 이미지 생성 도구가 있으면 `static/draft/sian_N.png`, 없으면 `static/draft/sian_N.html` + 캡처(틀: `illustrations/PROMPTS.md` 시안 절)
-3. 사람에게 1줄씩 보고(번호·출처 md·분위기 3단어·미리보기 경로) → 사람이 번호 1개 선택(그 전에는 본 화면을 만들지 않는다)
-4. 고른 md + PRD 4절 → `design-kit/DESIGN_과제.md`(틀: `refs/_DESIGN_과제.template.md`)
+3. 사람에게 1줄씩 보고(번호·출처 md·배치 이름·분위기 3단어·그림 자리·미리보기 경로) → 사람이 번호 1개 선택(그 전에는 본 화면을 만들지 않는다)
+4. 고른 md(색) + 배치 + 그림 자리 + PRD 4절 → `design-kit/DESIGN_과제.md`(틀: `refs/_DESIGN_과제.template.md`, 0·1-1·2·9절)
 5. 템플릿·키트 파일을 `static/` 에 복사하고 `static/tokens.css` 를 DESIGN_과제.md 2절(색) 값으로 바꾼다(hex 는 tokens.css 에만) → ui_check 대비 4.5:1
 6. 데이터 매핑·그림 자리로 화면 초안(`$web-ui 초안`, SKILL ②~③)
 - 옮기는 것: 색·서체 느낌(굵기·자간)·간격·반경·분위기·문구 톤 / 안 옮기는 것: 로고·서비스 이름·폰트 파일·문구 원문·사진

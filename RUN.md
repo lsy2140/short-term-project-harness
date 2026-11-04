@@ -29,7 +29,7 @@
 | 5 | 동시 실행 | 같은 폴더에서 `codex` 2개를 띄워 각각 `ls` → 둘 다 종료 | 둘 다 응답 · 잠금·충돌 메시지 0 | (약 1분) |
 | 6 | 미리보기 | T0 `python3 -m http.server 3000 --bind 0.0.0.0` → 미리보기 포트 3000 → Ctrl+C | 화면이 뜸 | 앱 8000 · 결정 폼 8010(막히면 8001·8011) |
 | 6b | Codex 서버 | T1 에 "`python3 -m http.server 8100 --bind 0.0.0.0` 을 백그라운드로 띄우고 포트 보고" → 미리보기 8100 → T1 에 "끄기" | 보고 1줄 · 화면 뜸 · 끈 뒤 포트 닫힘 | 실패(권한·샌드박스) → 메시지 원문을 PRD 8 에, 그때만 T0 에서 같은 명령 |
-| 7 | 이미지 생성(Codex 내장 도구, CLI 0.137 이상) | T1 에 "이미지 생성 도구로 1280×800 웹 화면 시안 1장을 `.tmp/sian_test.png` 로 저장" → T0 `ls -la .tmp/sian_test.png` · `codex features list` 의 `image_generation` 줄 | 파일 1개 · 성공·실패(실패면 메시지 원문) → PRD 8 | 성공 = 시안·그림 생성 경로 / 실패 = HTML 시안(`design-kit/illustrations/PROMPTS.md` 시안 절) · 그림은 키트 세트 → 데이터 그림 → 틴트 면 |
+| 7 | 이미지 생성(Codex 내장 도구, CLI 0.137 이상) | T1 에 "이미지 생성 도구로 1280×800 웹 화면 시안 1장을 `.tmp/sian_test.png` 로 저장" → T0 `ls -la .tmp/sian_test.png` · `codex features list` 의 `image_generation` 줄 | 파일 1개 · 성공·실패(실패면 메시지 원문) → PRD 8 | 성공 = 시안 5장·그림 생성 경로 / 실패 = HTML 시안 5개(`design-kit/illustrations/PROMPTS.md` 시안 절) · 그림은 키트 세트 → 데이터 그림 → 틴트 면 |
 | 8 | 세션 로그 | 어느 Codex 창 로그가 수집되나(메인만 / 전부) | 범위 메모 | 어느 쪽이든 위임 원문은 PLAN 8 에 |
 | 9 | 에디터·메신저·제출 | 새 파일 → '저장됨' 표시 · 담당자 창 보내기 1회 · 제출 버튼·제출 기준 폴더 경로 | 경로 메모 → PRD 8(환경) | |
 
@@ -41,16 +41,16 @@
 |---|---|---|---|---|
 | 1 읽기·인터뷰·PRD | 시작 신호 뒤 | T1 prompts 1(`$kickoff`, 시작·마감 시각) → 질문을 M 에 3~4개씩 2~3회(첫 묶음 R+A+B+C, 다듬기 prompts 2) → 답을 T1 에 prompts 3(`답변 B2: …`) → T1 prompts 4(`$prd`) → PRD.md 를 읽고 prompts 5(검토 피드백) → PRD 검토 요청 5줄을 M 에 → 회신 원문을 붙여 T1 prompts 6("PRD 승인") | PRD v1 승인 + 담당자 회신 원문 기록(PRD 2행 버전 `v1` · DECISIONS 0 `담당자 회신: HH:MM "원문"`) · PRD 11 제출 표 초안 | (0–40분) 코드 금지 · 회신 전에 승인해도 됨(다른 점은 `요구사항 갱신:`) |
 | 2 계획 CP0 | PRD v1 승인 | T1 prompts 8(`$plan`) → PLAN 4번 표·4-2 연결 표를 읽고 prompts 9(표 수정·"표 승인") → T0 `python3 scripts/scaffold.py --stages <A 모듈명,쉼표>`(영문 소문자, 예 `contract,judge`) 1회 | PLAN 4번 표(입력·완료 조건에 PRD ID) · 4-2 연결 표 · TASK 5 · `work/agents/` 3개 · run.py | (40–55분) 승인 안 함: 같은 산출 파일이 두 담당에 / PRD MUST 가 표에 없음 / 다른 담당을 기다리는 task 에 연결 행 없음 |
-| 3 구현 | 표 승인 | T1 prompts 10(A_core 시작) → T2 `codex` + prompts 11(B_web `$web-ui 시안`, scaffold 출력 확인 뒤) → 시안 보고가 오면 미리보기 8000 `/draft/sian_N.png` 를 열어 비교 → T2 에 prompts 12(`시안 N 선택` 또는 `시안 생략`) → B 가 `design-kit/DESIGN_과제.md` 를 쓴 뒤 `$web-ui 초안` → T3 `codex` + prompts 13(C_verify, A·B 첫 task green 뒤) → `연결 N` 이 보이면 받는 창에 prompts 14 → CP1 때 6절 'CP1' → 각 창 prompts 16(재개) | 담당별 `out/debug/NN_*/green.txt`·`verify.json` · `DESIGN_과제.md` 0절 출처 · CP1 = run.py 가 필수 출력을 올바른 헤더로 + B 더미 렌더 | (55–150분 · B 는 A +10~15분) 사람 = 신호 전달자(아래 표) |
+| 3 구현 | 표 승인 | T1 prompts 10(A_core 시작) → T2 `codex` + prompts 11(B_web `$web-ui 시안`, scaffold 출력 확인 뒤) → 시안 보고가 오면 미리보기 8000 `/draft/sian_N.png`(5장) 를 열어 색·배치·그림 자리를 비교 → T2 에 prompts 12(`시안 N 선택` 또는 `시안 생략`) → B 가 `design-kit/DESIGN_과제.md` 를 쓴 뒤 `$web-ui 초안` → T3 `codex` + prompts 13(C_verify, A·B 첫 task green 뒤) → `연결 N` 이 보이면 받는 창에 prompts 14 → CP1 때 6절 'CP1' → 각 창 prompts 16(재개) | 담당별 `out/debug/NN_*/green.txt`·`verify.json` · `DESIGN_과제.md` 0절 출처 · CP1 = run.py 가 필수 출력을 올바른 헤더로 + B 더미 렌더 | (55–150분 · B 는 A +10~15분) 사람 = 신호 전달자(아래 표) |
 | 4 통합 CP2 | 세 파일 2행 `상태:` 전부 green | T3 `$verify-agent <A·B task>` → T0 `preflight --require` · `check_contract`(3절) → T0 `preflight --freeze`(사람만) → 범위 축소 결정 → T4 심사 1회(prompts 22) → 미충족 2개를 담당 창에 prompts 16(재개) → T3 `$verify-agent summary`(FROZEN 전 = 핵심 3개 초안만) | preflight FAIL 0 · `.tmp/freeze_N/` · 미충족 ≤2 · 핵심 3개 초안 | (150–185분) CP1 이후 구조·라이브러리 변경 없음 |
-| 5 화면 고도화 | `.tmp/freeze_N/` 있음 | T2 `$web-ui 최종`(B 가 서버 재시작·`ui_check --final`·헤드리스 스크린샷까지 하고 포트 보고) → 미리보기에서 1280·390px 직접 클릭 → T2 에 prompts 20(`HUMAN_CHECK HH:MM 통과`) | `.figure` 빈 박스 0 · ui_check PASS · HUMAN_CHECK 기록 | (185–210분) 웹 없으면 건너뜀 · 그림 순서: 생성 → 키트 세트 → 데이터 그림 → 틴트 면 |
+| 5 화면 고도화 | `.tmp/freeze_N/` 있음 | T2 `$web-ui 최종`(B 가 서버 재시작·`ui_check --final`·헤드리스 스크린샷 3장까지 하고 포트 보고) → 미리보기에서 1280·834·390px 직접 클릭 → T2 에 prompts 20(1280·834·390 각 통과/이상) | `.figure` 빈 박스 0 · ui_check PASS · `screenshots/` 3장 · HUMAN_CHECK 기록 | (185–210분) 웹 없으면 건너뜀 · 그림 순서: 과제 전용 생성(5장 이하, 대기 중 미리 만든 것부터) → 키트 세트 → 데이터 그림 → 틴트 면 |
 | 6 정리·제출 CP3 | 사람이 TASK 머리 Status 를 `FROZEN` 으로 | 세 창에 prompts 23(동결 선언) → T0 `python3 -m unittest -v` → T3 prompts 24(`$verify-agent summary`) → 4절 제출 카드(prompts 25) | TODO 0 · 핵심 3개 숫자 갱신 · PRD 11 표 전부 `[x]` · 제출 ID | (210–240분) 동결 뒤 허용 = 문서·근거(파일:줄)·복사·재시작 |
 
 3단계에서 사람이 하는 일(신호 전달자):
 
 | 이럴 때 | 사람이 하는 일 | 붙일 글(창) |
 |---|---|---|
-| B 가 시안 2~3개를 냈다 | `static/draft/sian_N` 을 미리보기·파일로 보고 `시안 N 선택`(이유 1줄) 또는 `시안 생략` | prompts 12 (T2) |
+| B 가 시안 5개를 냈다(색·배치·그림 자리가 다른 5장) | `static/draft/sian_N` 을 미리보기·파일로 보고 `시안 N 선택`(이유 1줄, 색·배치를 따로 고르면 바꿀 점 줄) 또는 `시안 생략` | prompts 12 (T2) |
 | 한 창 보고에 `연결 N` 이 있다 | PLAN 4-2 그 행의 받는 담당·가져올 것·끝 신호 확인 | prompts 14 (받는 창) |
 | `결정 대기 Dnn` 으로 멈췄다 | 3절 '결정?' 대로 답 | prompts 15 (그 창) |
 | ⑥⑦ 의 `@B`·`@사람` 요청 | 다음 CP 까지 모았다가 답 | prompts 16 (각 창) |
@@ -67,7 +67,7 @@
 |---|---|
 | 지금 상태? | T0 `python3 scripts/status.py` — 1줄(끝에 PRD 버전), 추천·독촉 없음 |
 | 다음에 누가 무엇을?(연결 표 보기) | PLAN 4-2 연결 표 · 각 work 파일 ⑦ 의 `연결 N` 줄 → 받는 창에 prompts 14 |
-| 시안 다시 보기 | T0 `ls static/draft/` · 미리보기 8000 `/draft/sian_N.png`(HTML 시안은 `/draft/sian_N.html`) |
+| 시안 다시 보기 | T0 `ls static/draft/` · 미리보기 8000 `/draft/sian_N.png`(HTML 시안은 `/draft/sian_N.html`) · 고른 뒤에는 나머지 4장이 `.tmp/draft/` 에 있음 |
 | 제출 가능? | T0 `python3 scripts/preflight.py --require <필수 파일>` + `python3 scripts/check_contract.py`(check_contract exit 2 는 통과 아님) · PRD 11 표 |
 | 찍어둘까? | T0 `python3 scripts/preflight.py --freeze` — 사람만. 복구본 `.tmp/freeze_N/`(찍을 때마다 N+1) |
 | 테스트 약해졌나? | T0 `python3 scripts/preflight.py --check-freeze` — 변경이 있으면 DECISIONS 에 승인 기록 |
@@ -95,7 +95,7 @@
 | 2 | preflight 재실행 | `python3 scripts/preflight.py --require <PRD 11 의 파일들>` | exit 0 |
 | 3 | 기록 규칙 | `python3 scripts/debug_dir.py --check` | exit 0 · 금지 패턴 0 |
 | 4 | 서버 재시작 | T2(B, 1세션이면 T1)에 "서버 재시작" → `[서버] 포트 8000 열었음` 보고 확인 | 보고 1줄·미리보기 접속 |
-| 5 | 화면 1회 | 미리보기 8000 → README 데모 순서 1회(정상 1 · 실패 1) | 콘솔 오류 0 · 390px 가로 스크롤 0 |
+| 5 | 화면 1회 | 미리보기 8000 → README 데모 순서 1회(정상 1 · 실패 1) | 콘솔 오류 0 · 834·390px 가로 스크롤 0 |
 | 6 | 제출 기준 폴더 복사 | `cp -r <PRD 11 의 파일·폴더> <제출 기준 폴더>/ && ls -la <제출 기준 폴더>` | 파일 수 = PRD 11 표대로 |
 | 7 | 저장됨 | 에디터 상단 '저장됨'(외부 변경 감지면 불러오기 뒤 재확인) | 미저장 0 |
 | 8 | 제출 | 제출 버튼 → 미리보기 → 확정 | 확정 뒤 수정 불가 |
@@ -114,7 +114,7 @@
 | 결정을 못 정함 | 3절 '결정?'. 업무 사실이면 담당자(제외 목록 먼저 확인). 답이 올 때까지 에이전트는 다른 task |
 | 담당자 답이 PRD 와 다름 | T1 에 `요구사항 갱신: …` → `$prd 갱신` 보고의 영향 task 를 담당 창에 전달 → 테스트부터 고친 뒤 코드 |
 | 받는 창이 옛 계약·옛 헤더로 일함 | 신호를 놓친 것. PLAN 4-2 그 행을 다시 전달(prompts 14) → 바뀐 점만 고치게 |
-| 시안 이미지가 안 만들어짐 | T2 에 같은 후보로 HTML 시안(토큰만 바꾼 페이지)을 요청. 고르는 답은 같다(`시안 N 선택`, prompts 12) |
+| 시안 이미지가 안 만들어짐 | T2 에 같은 후보로 HTML 시안 5개(토큰 + 배치 CSS 1줄만 바꾼 페이지)를 요청. 고르는 답은 같다(`시안 N 선택`, prompts 12) |
 | 두 에이전트가 같은 파일을 고침 | `work/README.md` 소유권 표로 한쪽을 되돌림. A↔B 계약 변경은 pending 으로만 |
 | 에이전트가 `--freeze`·하위 에이전트·보이는 브라우저 창 | 멈추고 "freeze·창·GUI 는 사람이 한다, 서버는 열되 포트를 보고"(AGENTS 1절) |
 | `git clone` 실패 | Plan C: 저장소 웹 화면에서 AGENTS.md → TASK.md → PRD.md → DECISIONS.md 순으로 복사 |
@@ -126,11 +126,11 @@
 | 1 인터뷰 답 | README 재정독 · P0 체크(제출 파일명·형식 → PRD 11) · eda 요약을 내 말로 3줄 |
 | 1 `$prd` | PRD 검토: 위험한 가정 2개·출처가 약한 규칙 2개·범위 밖 1개를 내 말로 → 고칠 곳 표시 |
 | 2 `$plan` | PRD 3·5·6 을 소리 내어 읽기 · 되묻기 후보 2개 · 연결 표에서 내가 전달할 신호 세기 |
-| 3 시안 대기 | 시안을 PRD 4절 화면과 나란히 놓고 첫 화면 핵심·상태색·분위기 3단어를 비교 → `시안 N 선택` 1개 |
+| 3 시안 대기 | 시안 5장을 PRD 4절 필수 블록과 나란히 놓고 첫 화면 핵심·배치·그림 자리·상태색·분위기 3단어를 비교 → `시안 N 선택` 1개(색·배치를 따로 고르면 바꿀 점 줄) |
 | 3 구현 중 | `work/agents/*.md` 2행 `상태:` 만 읽기 · ⑦ 의 `연결 N` 은 바로 전달(prompts 14) · 나머지 ⑥⑦ 과 pending 미답은 CP 까지 모음 |
 | 3 CP1 | 세 파일 ⑥⑦ + PLAN 표 → pending 답 → 담당자 묶음 → 생략 후보 결정 |
 | 4 통합 | 심사 미충족 2개 · 핵심 3개(작동 원리·가장 위험한 실패·바꾼 것과 이유)를 내 말로 |
-| 5·6 화면·정리 | 1280·390px 클릭 · 콘솔 · 설명 못 하는 코드 찾기 · PRD 11 표 상태 채우기 |
+| 5·6 화면·정리 | 1280·834·390px 클릭 · 콘솔 · 설명 못 하는 코드 찾기 · PRD 11 표 상태 채우기 |
 
 ## 7. 제출 체크
 
@@ -152,7 +152,7 @@
 - [ ] `out/report/stage_NN.md` · `out/report/implementation_summary.md` 핵심 3개 숫자 갱신 · README 에 링크
 - [ ] 종합정리 표 7개 · 결함 사례 카드 수 = DECISIONS 4 행 수 · 동시 요청 때 지금 동작(테스트 또는 '확인 안 함')
 - [ ] `work/agents/*.md` 2행 `상태:` 최종 · ⑤ 로그 남음
-- [ ] 웹: 콘솔 오류 0 · 390px 가로 스크롤 0 · `screenshots/` 2장 · `.figure` 빈 박스 0 · 외부 URL 0
+- [ ] 웹: 콘솔 오류 0 · 834·390px 가로 스크롤 0 · `screenshots/` 3장(desktop·tablet·mobile) · `.figure` 빈 박스 0 · 외부 URL 0
 - [ ] 웹 디자인: `design-kit/DESIGN_과제.md` 있음 · README 에 고른 참고 md 출처 1줄(예 ko-design-md, CC BY 4.0)
 - [ ] 심사 미충족 보완 또는 한계 기록 · 내가 설명 못 하는 코드 0줄
 
@@ -169,4 +169,4 @@
 | green / RED→FIX | 테스트 통과 기록 / 실패를 다시 만들어 본 뒤 고침 | `out/debug/NN_*/` · DECISIONS 4 |
 | freeze / FROZEN | 지금 상태를 찍어 둔 복구본 / 기능 변경을 끝낸 동결 선언 | `preflight --freeze` · TASK 머리 2행 |
 | 근거(파일:줄) | 주장마다 붙이는 위치: 파일:줄·테스트 이름·명령 | 모든 제출 문서 |
-| 시안 | 화면 후보(그림 또는 HTML) 2~3개, 사람이 `시안 N 선택` 으로 1개 고름 | `static/draft/` · prompts 11·12 |
+| 시안 | 화면 후보(그림 또는 HTML) 5개(색 md × 배치 × 그림 자리가 서로 다름), 사람이 `시안 N 선택` 으로 1개 고름 | `static/draft/` · prompts 11·12 |

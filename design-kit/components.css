@@ -21,7 +21,7 @@
   .panels > .span-6 { grid-column: span 6; }
   .panels > .span-8 { grid-column: span 8; }
 }
-@media (max-width: 1024px) { .panels > .span-3, .panels > .span-4 { grid-column: span 6; } .panels > .span-8 { grid-column: span 12; } }
+@media (max-width: 1024px) { .panels > .span-3, .panels > .span-4 { grid-column: span 6; } .panels > .span-8 { grid-column: span 12; } }   /* 태블릿(≤1024) span 접기: 3·4 → 6(2열), 8 → 12(전폭). 640 이하는 위 기본값 span 12(1열) */
 
 /* ---------- 배지 5종 + brand + live. 글자로 상태를 전달하고 색은 보조. 점은 live(실시간 1곳)에만 ---------- */
 .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--r-sm); font-size: 11px; font-weight: 600; white-space: nowrap; line-height: 1; background: var(--off-bg); color: var(--off); }
@@ -239,6 +239,7 @@ tfoot td { font-weight: 600; background: var(--surface-2); }
 .figure[data-ratio="4/3"] { aspect-ratio: 4 / 3; }
 .figure[data-ratio="1/1"] { aspect-ratio: 1 / 1; }
 .figure[data-ratio="3/1"] { aspect-ratio: 3 / 1; }
+.figure[data-ratio="21/9"] { aspect-ratio: 21 / 9; }   /* 상단 일러스트 띠용 넓은 비율 */
 .figure figcaption { max-width: 32em; }
 .figure.is-final { border: 0; padding: 0; background: none; display: block; }
 .figure.is-final > img, .figure.is-final > svg { width: 100%; height: 100%; object-fit: contain; }

@@ -263,6 +263,7 @@ class TestKitPages(unittest.TestCase):
             html = read(os.path.join(KIT, 'templates', t))
             head = html.split('-->', 1)[0]
             self.assertIn('390', head, '%s: 머리 와이어 주석' % t)
+            self.assertIn('834', head, '%s: 머리 와이어 주석 태블릿 줄' % t)
             self.assertIn('src="../kit.js"', html, t)
             self.assertIn("K.load('../data.json'", html, t)
             self.assertIn('K.setStatus(', html, t)
@@ -302,10 +303,10 @@ class TestKitPages(unittest.TestCase):
         self.assertLessEqual(os.path.getsize(skill), 5120)
         desc = re.search(r'^description: (.*)$', read(skill), re.M).group(1)
         self.assertLessEqual(len(desc), 200)
-        for path, words in ((os.path.join(KIT, 'DESIGN.md'), ('refs/pick.py', 'DESIGN_과제', 'sian_N')),
-                            (os.path.join(KIT, 'REFERENCE.md'), ('refs/INDEX.md',)),
-                            (os.path.join(KIT, 'illustrations', 'PROMPTS.md'), ('## 시안 틀', 'sian_$N.css')),
-                            (skill, ('pick.py', 'DESIGN_과제.md', '시안 선택 전 본 화면', '동시 요청'))):
+        for path, words in ((os.path.join(KIT, 'DESIGN.md'), ('refs/pick.py', 'DESIGN_과제', 'sian_N', 'tablet.png', '834')),
+                            (os.path.join(KIT, 'REFERENCE.md'), ('refs/INDEX.md', '834')),
+                            (os.path.join(KIT, 'illustrations', 'PROMPTS.md'), ('## 시안 틀', 'sian_$N.css', '배치', 'for N in 1 2 3 4 5')),
+                            (skill, ('pick.py', 'DESIGN_과제.md', '시안 선택 전 본 화면', '동시 요청', '834'))):
             for w in words:
                 self.assertIn(w, read(path), '%s: %s' % (os.path.basename(path), w))
         hits = []
@@ -316,6 +317,46 @@ class TestKitPages(unittest.TestCase):
             for i, line in enumerate(read(p).splitlines(), 1):
                 if re.search(r'THIRD[_]PARTY|사람이 (띄|연다)|[0-9]+분 (이후|에|부터)', line):
                     hits.append('%s:%d' % (os.path.relpath(p, ROOT), i))
+        self.assertEqual(hits, [])
+
+    def test_base_css_tablet_rule(self):
+        """base.css 의 태블릿 구간(max-width: 1024px) 안에 .cols-3 2열 규칙이 있고, components.css 에 상단 띠 비율 21/9 가 있다."""
+        base = read(os.path.join(KIT, 'base.css'))
+        m = re.search(r'@media \(max-width: 1024px\) \{(.*?)\n\}', base, re.S)
+        self.assertIsNotNone(m, 'base.css: @media (max-width: 1024px) 블록')
+        self.assertIn('.cols-3', m.group(1), 'base.css: 태블릿 블록의 .cols-3 2열')
+        self.assertIn('repeat(2, minmax(0, 1fr))', m.group(1))
+        self.assertIn('data-ratio="21/9"', read(os.path.join(KIT, 'components.css')))
+
+    def test_three_viewports_everywhere(self):
+        """사람·Codex 문서에 태블릿 834 가 있고, 키트 문서(refs 원문·과제 중 생기는 문서 제외)에 옛 2뷰포트·시안 2~3개·그림 3장 문구가 없다."""
+        skill = os.path.join(ROOT, '.agents', 'skills', 'web-ui', 'SKILL.md')
+        missing = []
+        for p in (os.path.join(ROOT, 'RUN.md'), os.path.join(ROOT, 'docs', 'prompts.md'), os.path.join(ROOT, 'HANDOFF.md'),
+                  os.path.join(KIT, 'DESIGN.md'), skill):
+            if '834' not in read(p):
+                missing.append(os.path.relpath(p, ROOT))
+        self.assertEqual(missing, [], '834 없음')
+        old = ('screenshots/ 2장', '시안 2~3', '후보 2~3', '3장 이하')
+        hits = []
+
+        def mds(d):
+            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith('.md')]
+        # 키트가 들고 가는 문서만(과제 중 생기는 PRD·work/agents·out/report 의 일반 문장은 검사하지 않는다)
+        kit_docs = ([os.path.join(ROOT, n) for n in ('AGENTS.md', 'README.md', 'RUN.md', 'HANDOFF.md', 'TASK.md', 'PLAN.md', 'DECISIONS.md', 'PRD.md')]
+                    + mds(os.path.join(ROOT, 'docs')) + mds(os.path.join(ROOT, 'work')) + mds(KIT) + mds(os.path.join(KIT, 'illustrations'))
+                    + [os.path.join(KIT, 'refs', 'INDEX.md'), os.path.join(KIT, 'refs', '_DESIGN_과제.template.md')])
+        for p in kit_docs:
+            if not os.path.exists(p):
+                continue
+            for i, line in enumerate(read(p).splitlines(), 1):
+                for w in old:
+                    if w in line:
+                        hits.append('%s:%d %s' % (os.path.relpath(p, ROOT), i, w))
+        for i, line in enumerate(read(skill).splitlines(), 1):
+            for w in old:
+                if w in line:
+                    hits.append('%s:%d %s' % (os.path.relpath(skill, ROOT), i, w))
         self.assertEqual(hits, [])
 
     def test_no_remote_url_in_kit_code(self):
