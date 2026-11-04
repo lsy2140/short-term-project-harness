@@ -308,6 +308,61 @@ class TestInputs(_TmpRoot):
         self.assertEqual(len(dict(agents)['C_verify']), 40)
 
 
+# ---------------------------------------------------------------- 연결 신호
+LINK_PLAN = PLAN_TASKS + """
+## 4-2 연결 표
+| # | 신호(어느 담당의 task N 끝) | 받는 담당 | 가져오는 것 | 하는 일 | 끝 신호 | 비고 |
+|---|---|---|---|---|---|---|
+| 1 | A 01 계약 끝 | B · C | work/contract.md | 더미 렌더 | B 05 green | |
+| 2 | B 05 시안 보고 | 사람 | static/draft/ | 시안 선택 | 사람 선택 | |
+
+## 6. 끝
+"""
+AGENT_A_SIG = AGENT_A + '-\n\n## ⑤ 진행 로그\n| 시각 | task | 한 줄 | 근거 |\n|---|---|---|---|\n\n## ⑦ 요청\n- 연결 1: 01 계약 끝 · work/contract.md\n- 연결 2: 05 시안 보고 · static/draft/\n'
+AGENT_B_SIG = AGENT_B + '\n## ⑤ 진행 로그\n| 10:10 | 05 | 연결 1 반영 · 더미 렌더 | static/ |\n\n## ⑦ 요청\n- 연결 #: <번호> · <끝난 task>\n'
+
+
+class TestSignals(_TmpRoot):
+    def test_pending_receivers_appear_after_the_decision_slot(self):
+        self.full_fixture()
+        self.write('PLAN.md', LINK_PLAN)
+        self.write(os.path.join('work', 'agents', 'A_core.md'), AGENT_A_SIG)
+        self.write(os.path.join('work', 'agents', 'C_verify.md'), '# C_verify — 기술검증\n상태: 대기 · 갱신 10:00\n')
+        line = status.build(self.root, now='11:26')['line']
+        self.assertIn('대기 D07·D08·D41(담당자 D07·D41) · 연결 대기 1(→B·C) · A_core:', line)
+        self.write(os.path.join('work', 'agents', 'B_web.md'), AGENT_B_SIG)
+        data = status.build(self.root, now='11:26')
+        self.assertIn(' · 연결 대기 1(→C) · ', data['line'])
+        self.assertEqual(data['signals'], {'pending': [{'n': '1', 'from': ['A'], 'to': ['C']}], 'pending_n': 1})
+        self.write(os.path.join('work', 'agents', 'C_verify.md'), '# C_verify — 기술검증\n상태: 점검 · 갱신 10:20\n\n## ⑤\n연결 1 반영\n')
+        data = status.build(self.root, now='11:26')
+        self.assertNotIn('연결 대기', data['line'])                 # 받는 담당이 사람뿐인 2번은 세지 않는다
+        self.assertEqual(data['signals'], {'pending': [], 'pending_n': 0})
+
+    def test_numbered_requests_in_section_7_are_counted_until_marked(self):
+        self.full_fixture()
+        self.write('PLAN.md', LINK_PLAN)
+        self.write(os.path.join('work', 'agents', 'C_verify.md'), '# C_verify — 기술검증\n상태: 점검 · 갱신 10:20\n\n## ⑦ 요청\n- @A C1: 02 재계산 12 vs 10\n- @B C2: 표 헤더 다름\n- @A: 번호 없음\n- @사람: 없음\n')
+        data = status.build(self.root, now='11:26')
+        self.assertIn(' · 요청 대기 C1(→A)·C2(→B) · A_core:', data['line'])
+        self.assertEqual(data['requests'], {'open': [{'id': 'C1', 'from': 'C', 'to': 'A'}, {'id': 'C2', 'from': 'C', 'to': 'B'}], 'open_n': 2})
+        self.write(os.path.join('work', 'agents', 'A_core.md'), AGENT_A + '-\n\n## ⑤ 진행 로그\n| 10:30 | 02 | C1 반영 | core/judge.py |\n')
+        self.write(os.path.join('work', 'agents', 'B_web.md'), AGENT_B + '\n## ⑤\n| 10:31 | 05 | C2 반영 | static/ |\n')
+        data = status.build(self.root, now='11:26')
+        self.assertNotIn('요청 대기', data['line'])
+        self.assertEqual(data['requests'], {'open': [], 'open_n': 0})
+
+    def test_no_signal_section_means_no_slot(self):
+        self.full_fixture()
+        data = status.build(self.root, now='11:26')
+        self.assertNotIn('연결', data['line'])
+        self.assertNotIn('요청', data['line'])
+        self.assertEqual(data['signals']['pending_n'], 0)
+        self.assertEqual(data['requests']['open_n'], 0)
+        self.assertEqual(status.read_links(self.root), {})
+        self.assertEqual(status.read_signals(self.root)['sent'], {})
+
+
 # ---------------------------------------------------------------- 시각
 class TestClock(unittest.TestCase):
     def test_remaining_over_midnight_adds_a_day(self):

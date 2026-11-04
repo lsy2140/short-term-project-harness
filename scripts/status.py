@@ -20,6 +20,10 @@
   decisions/pending.md 의 `## Dnn` 중 고른 후보 줄(`- [x] A. …` · `- [x] 반영 HH:MM A. …`)이 없는 항목 → 대기 ID
     ('담당자 확인: 필요' 는 괄호 안, 제목에 '(예시' 가 든 항목은 뺀다) — decide.py 의 미답 판정과 같은 규칙
   work/agents/*.md 머리 `상태:` 줄 → 에이전트별 한 줄(_template.md 제외)
+  work/agents/*.md ⑦ 절의 `연결 N`(보낸 담당 = 파일 첫 글자 A/B/C) · 각 파일 어디든 `연결 N 반영`(받은 담당) · PLAN.md '## 4-2' 표의 받는 담당
+    → 아직 안 받은 담당이 있으면 '연결 대기 1(→B·C)·6(→C)' (없으면 이 칸은 아예 없다. 받는 담당이 사람인 행과 PLAN 행이 없는 번호 '(→?)' 는 표시만)
+  work/agents/*.md ⑦ 절의 `@A C1: …`(받는 담당 글자 + 보낸 글자·번호) · 어느 파일이든 `C1 반영`·`C1 해결` → 닫히지 않은 것만 '요청 대기 C1(→A)'
+    (번호 없는 `@A:` 줄과 `@사람` 은 세지 않는다)
   PRD.md 머리 5줄의 `버전: `vN`` → 줄 끝 'PRD v1'(파일이 없으면 'PRD 없음', 버전 줄이 없으면 'PRD 버전 미기록')
 없는 것: 어떤 추천·독촉·유도 문구도 내지 않는다. 남은 분은 표시일 뿐 분기 기준이 아니다.
 exit 0: 항상(시작·마감·파일이 없어도) / exit 2: 인자 형식 오류(--now·--tests)
@@ -48,6 +52,16 @@ CP_PAT = re.compile(r'\bCP\s*[:：]\s*`?([^\s·`]+)')
 AGENT_STATUS_PAT = re.compile(r'^\s*상태\s*[:：]\s*(.*?)\s*$')
 AGENT_UPDATED_TAIL = re.compile(r'\s*·\s*갱신\s*[:：]?\s*\S*\s*$')
 PRD_VERSION_PAT = re.compile(r'버전\s*[:：]\s*`?\s*([vV]\d+(?:\.\d+)*)')
+# 연결 신호: ⑦ 의 `연결 1` · `연결 #: 1` · `연결 1:` (숫자가 없는 템플릿 줄 `연결 #: <번호>` 는 안 잡힌다) / 받은 쪽의 `연결 1 반영`
+SIGNAL_PAT = re.compile(r'연결\s*#?\s*[:：]?\s*(\d+)(?!\s*반영)')
+APPLIED_PAT = re.compile(r'연결\s*#?\s*[:：]?\s*(\d+)\s*반영')
+SECTION7_PAT = re.compile(r'^##\s*⑦')
+# 요청: ⑦ 의 `@A C1: 내용`(받는 담당 A, 보낸 C 의 1번) / 닫힘 표시 `C1 반영`(받은 쪽 ⑤) 또는 `C1 해결`(보낸 쪽)
+REQUEST_PAT = re.compile(r'@([ABC])\s+([ABC]\d+)\s*[:：]\s*(.*)')
+REQ_DONE_PAT = re.compile(r'(?<![A-Za-z0-9_])([ABC]\d+)\s*(?:반영|해결)')
+REQ_TEXT_MAX = 80
+RECEIVER_LETTER_PAT = re.compile(r'\b([ABC])\b')
+LINK_ROW_MAX = 120
 HEAD_LINES = 20
 PRD_HEAD_LINES = 5
 AGENT_TEXT_MAX = 40
@@ -248,6 +262,107 @@ def read_agents(root):
     return out
 
 
+def read_links(root):
+    """PLAN.md '## 4-2' 연결 표 → {번호: {'to': [받는 담당 글자 A/B/C], 'row': 행 요약}}. 표가 없으면 {}.
+    받는 담당 칸의 A·B·C 만 센다('사람' 은 받은 표시를 남길 수 없으므로 대기로 세지 않는다)."""
+    out = {}
+    lines = _read_lines(os.path.join(root, 'PLAN.md'))
+    if lines is None:
+        return out
+    in_sec, table = False, []
+    for line in lines:
+        if re.match(r'^##\s*4-2\b', line):
+            in_sec = True
+            continue
+        if in_sec and re.match(r'^##\s', line):
+            break
+        if in_sec and line.lstrip().startswith('|'):
+            table.append(line)
+    if len(table) < 2:
+        return out
+    header = _split_row(table[0])
+    to_idx = next((i for i, c in enumerate(header) if '받는' in c), None)
+    if to_idx is None:
+        return out
+    for line in table[1:]:
+        cells = _split_row(line)
+        if _is_separator(cells) or not cells or not re.match(r'^\d+$', cells[0]):
+            continue
+        receivers = RECEIVER_LETTER_PAT.findall(cells[to_idx]) if len(cells) > to_idx else []
+        out[cells[0]] = {'to': sorted(set(receivers)), 'row': ' | '.join(cells[1:])[:LINK_ROW_MAX]}
+    return out
+
+
+def read_signals(root):
+    """work/agents/*.md ⑦ 의 `연결 N` → 보낸 담당(파일 첫 글자), 각 파일 어디든 `연결 N 반영` → 받은 담당.
+    PLAN 4-2 의 받는 담당 중 보낸 쪽도 아니고 반영 표시도 없는 담당이 남으면 pending 에 {'n', 'from', 'to'}.
+    PLAN 행이 없는 번호는 to=['?']. 받는 담당이 사람뿐인 행은 pending 에 들어가지 않는다.
+    ⑦ 의 `@A C1: 내용` 은 requests 에 {'id', 'from', 'to', 'text'} — 어느 파일에든 `C1 반영`·`C1 해결` 이 있으면 닫힌 것."""
+    base = os.path.join(root, 'work', 'agents')
+    sent, applied, requests, done = {}, {}, [], set()
+    if os.path.isdir(base):
+        for fn in sorted(os.listdir(base)):
+            if not fn.endswith('.md') or fn.startswith('_'):
+                continue
+            letter = fn[0].upper()
+            lines = _read_lines(os.path.join(base, fn)) or []
+            text = '\n'.join(lines)
+            for m in APPLIED_PAT.finditer(text):
+                applied.setdefault(m.group(1), set()).add(letter)
+            for m in REQ_DONE_PAT.finditer(text):
+                done.add(m.group(1))
+            sec, in7 = [], False
+            for line in lines:
+                if SECTION7_PAT.match(line):
+                    in7 = True
+                    continue
+                if in7 and re.match(r'^##\s', line):
+                    break
+                if in7:
+                    sec.append(line)
+            for m in SIGNAL_PAT.finditer('\n'.join(sec)):
+                sent.setdefault(m.group(1), set()).add(letter)
+            for line in sec:
+                m = REQUEST_PAT.search(line)
+                if m and m.group(1) != letter:
+                    requests.append({'id': m.group(2), 'from': letter, 'to': m.group(1), 'text': m.group(3).strip()[:REQ_TEXT_MAX]})
+    links = read_links(root)
+    pending = []
+    for n in sorted(sent, key=int):
+        link = links.get(n)
+        if link is None:
+            waiting = ['?']
+        else:
+            waiting = [r for r in link['to'] if r not in sent[n] and r not in applied.get(n, set())]
+        if waiting:
+            pending.append({'n': n, 'from': sorted(sent[n]), 'to': waiting, 'row': (link or {}).get('row', '')})
+    open_requests = [r for r in requests if r['id'] not in done]
+    return {'sent': {n: sorted(v) for n, v in sent.items()}, 'pending': pending, 'requests': open_requests}
+
+
+def signals_text(signals):
+    """'연결 대기 1(→B·C)·6(→C)' — pending 이 없으면 ''(칸을 만들지 않는다)."""
+    if not signals['pending']:
+        return ''
+    items = ['%s(→%s)' % (p['n'], '·'.join(p['to'])) for p in signals['pending'][:MAX_IDS_SHOWN]]
+    text = '연결 대기 ' + '·'.join(items)
+    if len(signals['pending']) > MAX_IDS_SHOWN:
+        text += '+%d' % (len(signals['pending']) - MAX_IDS_SHOWN)
+    return text
+
+
+def requests_text(signals):
+    """'요청 대기 C1(→A)·C2(→B)' — 닫히지 않은 요청이 없으면 ''."""
+    reqs = signals.get('requests') or []
+    if not reqs:
+        return ''
+    items = ['%s(→%s)' % (r['id'], r['to']) for r in reqs[:MAX_IDS_SHOWN]]
+    text = '요청 대기 ' + '·'.join(items)
+    if len(reqs) > MAX_IDS_SHOWN:
+        text += '+%d' % (len(reqs) - MAX_IDS_SHOWN)
+    return text
+
+
 def read_prd(root):
     """PRD.md 머리 5줄의 `버전: `vN`` → 'v1'·'v1.1'(소문자). 파일이 없으면 None, 버전 줄이 없으면 ''."""
     lines = _read_lines(os.path.join(root, 'PRD.md'), PRD_HEAD_LINES)
@@ -295,6 +410,7 @@ def build(root, now=None, tests_arg=None):
     debug = read_debug(root)
     pending = read_pending(root)
     agents = read_agents(root)
+    signals = read_signals(root)
     prd = read_prd(root)
     elapsed = minutes_from(head['start'], now) if head['start'] else None
     remaining = minutes_until(head['deadline'], now) if head['deadline'] else None
@@ -314,6 +430,10 @@ def build(root, now=None, tests_arg=None):
         parts.append('테스트 %d/%d' % (tests['pass'], tests['total']))
     parts.append('debug green %d/%d' % (debug['green'], debug['total']) if debug['total'] else 'debug 기록 없음')
     parts.append(pending_text(pending))
+    if signals['pending']:
+        parts.append(signals_text(signals))
+    if signals['requests']:
+        parts.append(requests_text(signals))
     for name, text in agents:
         parts.append('%s: %s' % (name, text))
     parts.append(prd_text(prd))
@@ -326,6 +446,10 @@ def build(root, now=None, tests_arg=None):
         'pending': {'open': pending['open'][:12], 'ask': pending['ask'][:12],
                     'open_n': len(pending['open']), 'ask_n': len(pending['ask'])},
         'agents': dict(agents),
+        'signals': {'pending': [{'n': p['n'], 'from': p['from'], 'to': p['to']} for p in signals['pending'][:12]],
+                    'pending_n': len(signals['pending'])},
+        'requests': {'open': [{'id': r['id'], 'from': r['from'], 'to': r['to']} for r in signals['requests'][:12]],
+                     'open_n': len(signals['requests'])},
         'prd': prd,
         'line': line,
     }

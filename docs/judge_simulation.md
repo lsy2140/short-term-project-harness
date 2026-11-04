@@ -44,7 +44,7 @@ README.md·DECISIONS.md·HANDOFF.md 에서 근거(파일:줄·테스트·실행 
 |---|---|---|
 | 기술 | 코드 유지보수성 | `docmap.py --check` · 단계 = 모듈 = 테스트 파일 |
 | 기술 | 요구사항 충족도 | PRD 5 MUST ↔ TASK 5 완료 조건 ↔ 테스트 1:1 |
-| 기술 | 기능적 정확성 | `unittest` 숫자 · `check_contract.py` · `out/report/stage_NN.md` 재계산 |
+| 기술 | 기능적 정확성 | `unittest` 숫자 · `check_contract.py` · `out/report/stages.md` 재계산 |
 | 기술 | 실무적 품질 위험 | 입력 검증·예외 테스트 · preflight secret 검사 |
 | 기술 | 제출물 완성도 | `preflight.py --require` exit 0 · README 가 정한 이름·형식 그대로 |
 | 의도 | Output 목표 구체화 | TASK 한 문장·5 완료 조건 · PRD 2 목표·5 기능(+DECISIONS 0 확인 기록) |

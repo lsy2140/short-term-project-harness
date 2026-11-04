@@ -13,7 +13,7 @@ Working rules, templates, skills, and verification scripts for short, time-boxed
 | `decisions/` | Pending decisions (`pending.md`) and answers (`answers.md`) |
 | `work/` | Multi-agent folder: ownership rules, the output contract between the core and web agents, agent file template |
 | `.agents/skills/` | Codex skills (6): `kickoff`, `prd`, `plan`, `rule-loop`, `web-ui`, `verify-agent` |
-| `scripts/` | 10 scripts: `status.py` (one-line status), `preflight.py`, `check_contract.py`, `debug_dir.py`, `decide.py` (decision form), `scaffold.py`, `docmap.py`, `smoke_web.py`, `eda_bootstrap.py`, `make_edge_cases.py`; their tests are in `scripts/tests/` |
+| `scripts/` | 11 scripts: `status.py` (one-line status), `wait_signal.py` (waits for hand-off signals), `preflight.py`, `check_contract.py`, `debug_dir.py`, `decide.py` (decision form), `scaffold.py`, `docmap.py`, `smoke_web.py`, `eda_bootstrap.py`, `make_edge_cases.py`; their tests are in `scripts/tests/` |
 | `design-kit/` | Design tokens, components, icons, page templates, layout references, and a UI checker |
 | `design-kit/refs/` | Reference DESIGN.md files copied as-is from awesome-design-md (MIT) and ko-design-md (CC BY 4.0), with `INDEX.md` and `pick.py` to shortlist 2-3 for a service type |
 | `docs/` | Stakeholder interview categories, review prompt, implementation summary guide, 26 example prompts |
@@ -31,8 +31,8 @@ cp -r .agents scripts tests docs design-kit decisions work /path/to/project/
 Then start `codex` in the project folder and send `$kickoff`. Once the stakeholder has answered, send `$prd`, review `PRD.md` and approve it before `$plan`.
 - Codex starts servers itself in the background and reports the port in one line; you type that port into the preview tab. Ports: app 8000 (web agent; the single agent in one-session mode), temporary checks 8100+, decision form 8010 (you start it at checkpoints). No visible browser windows, mouse or keyboard automation; screenshots are headless.
 - Only the human runs `python3 scripts/preflight.py --freeze`.
-- Agents are opened by the human, one terminal each (`A_core`, `B_web`, `C_verify`). Each reads its own `work/agents/<name>.md`. No subagents or forks.
-- `$plan` also writes the hand-off table (PLAN section 4-2). When an agent reports `연결 N` (hand-off N), you pass it to the receiving window with the hand-off prompt in `docs/prompts.md`.
+- Agents are opened by the human, one terminal each (`A_core`, `B_web`, `C_verify`). Each reads its own `work/agents/<name>.md`. Only `A_core` may spawn subagents, and only for a bundle (`묶음 Pn` in PLAN section 4) of 2-3 independent tasks run in one turn (rules in `work/README.md` 8); `B_web`, `C_verify` and forks never.
+- `$plan` also writes the hand-off table (PLAN section 4-2). Agents pick hand-offs and numbered requests (`@A C1:`) up themselves with `scripts/wait_signal.py` (checked at the end of every task, polled every 30 s while idle). You relay one by hand only when `status.py` keeps showing `연결 대기` or `요청 대기`.
 - Web tasks: `$web-ui 시안` shortlists 5 reference DESIGN.md files, makes one mock-up per candidate (an image if image generation works, otherwise an HTML page), each with a different layout (5 layout types) and 1-2 illustration slots, and waits. You answer `시안 N 선택` (pick N) or `시안 생략` (keep the kit tokens); it writes `design-kit/DESIGN_과제.md` and moves the other 4 mock-ups to `.tmp/draft/`, then `$web-ui 초안` builds the first page from the kit templates and `$web-ui 최종` adds the final figures (at most 5, generated with the built-in image tool) after the freeze. Screenshots are taken at desktop/tablet/mobile widths (1280/834/390).
 - For an independent review, open `codex -s read-only` and paste the prompt from `docs/judge_simulation.md`.
 

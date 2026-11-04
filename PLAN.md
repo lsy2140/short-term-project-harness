@@ -22,20 +22,21 @@ task __/__ PASS · 테스트 __/__ PASS · check_contract exit __ · 갱신 __:_
 ## 4. task 표
 <!-- # = 단계 번호 NN. 담당별로 미리 나눠 둔다(예 A 01~04 · B 05~07 · C 08~09)
 담당·검증 = A / B / C · 입력 = PRD ID(R01·B03) + 입력 파일 · 완료 조건 = PRD 5 의 테스트 이름
-분 = 사람이 준 예산, 넘치면 뒤에서부터 생략 후보 · 상태 = PASS / FAIL / NOT_RUN / HUMAN_CHECK -->
+분 = 사람이 준 예산, 넘치면 뒤에서부터 생략 후보 · 상태 = PASS / FAIL / NOT_RUN / HUMAN_CHECK
+의존 `묶음 P1` = 서로 독립인 A task 2~3개를 A 가 하위 에이전트로 한 턴에(work/README.md 8) -->
 | # | task | 담당 | 검증 | 입력 | 산출 파일 | 완료 조건 | 의존 | 분 | 상태 |
 |---|---|---|---|---|---|---|---|---|---|
 | 01 |  | A | C |  |  | `test_` | - |  | NOT_RUN |
 
 ## 4-2 연결 표
 <!-- 한 담당의 task 가 끝나면 누가 무엇을 가져와 무엇을 하나. 의존 열에 다른 담당 번호가 있으면 1행.
-같은 신호는 한 행(받는 담당을 함께 적음). 신호는 사람이 받는 창에 전달한다(docs/prompts.md 14).
+같은 신호는 한 행(받는 담당을 함께 적음). 신호는 받는 창이 scripts/wait_signal.py 로 읽는다(놓치면 docs/prompts.md 14).
 C 의 검증은 CP1 전·CP2 전에 각각 1번 이상. 아래 3행은 예시 — $plan 이 과제에 맞게 바꾼다 -->
 | # | 신호(어느 담당의 task N 끝) | 받는 담당 | 가져오는 것(파일·계약·숫자) | 하는 일 | 끝 신호 | 비고 |
 |---|---|---|---|---|---|---|
 | 1 | A 01 계약 끝 | B | `work/contract.md` 열·샘플 2행 | 샘플 2행으로 화면 그리기(더미 렌더, B 05) | B 05 green | CP1 조건 |
-| 2 | A 02 판정 초안 끝 | B · C | 출력 파일 헤더·행 수 | B: 표 열 갱신(B 06) · C: 판정 재계산(C 09) | B 06 green · `stage_02.md` | C 검증(CP2 전) |
-| 3 | B 05 초안(더미 렌더) 끝 | C | 서버 포트·경로(B_web.md ③) | 화면·API 점검(`ui_check.py`·`smoke_web.py`, C 08) | ui_check FAIL 0 · `smoke_web.py` PASS · `stage_05.md` | C 검증(CP1 전) |
+| 2 | A 02 판정 초안 끝 | B · C | 출력 파일 헤더·행 수 | B: 표 열 갱신(B 06) · C: 판정 재계산(C 09) | B 06 green · `stages.md` 02절 | C 검증(CP2 전) |
+| 3 | B 05 초안(더미 렌더) 끝 | C | 서버 포트·경로(B_web.md ③) | 화면·API 점검(`ui_check.py`·`smoke_web.py`, C 08) | ui_check FAIL 0 · `smoke_web.py` PASS · `stages.md` 05절 | C 검증(CP1 전) |
 
 ## 5. 검증 결과
 | 검증 | 명령 | 결과(숫자) | 근거(파일:줄) |
