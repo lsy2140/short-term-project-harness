@@ -474,6 +474,23 @@ class TestKitRoutesBusinessRules(unittest.TestCase):
         self.assertIn('업무 규칙: D03(결정됨)·D07(대기)', rule_loop)
         self.assertIn('pending.md', rule_loop)
 
+    def test_core_algorithm_choice_goes_through_pending(self):
+        """PLAN 4 의 `(핵심)` task 는 후보 2~3 을 pending 으로 올려 사람이 고른다 — 규약·계획 스킬·예시 프롬프트 27 이 같은 말을 한다."""
+        agents = decide.read_text(os.path.join(ROOT, 'AGENTS.md'))
+        self.assertIn('`(핵심)` task 의 방식은 후보 2~3+추천을 pending 으로 올려 사람이 고른다', agents)
+        plan = decide.read_text(os.path.join(ROOT, '.agents', 'skills', 'plan', 'SKILL.md'))
+        self.assertIn('`(핵심)`', plan)
+        prompts = decide.read_text(os.path.join(ROOT, 'docs', 'prompts.md'))
+        self.assertIn('## 27.', prompts)
+        self.assertIn('담당자 확인: 불필요 — 기술 선택, 결정은 사람', prompts)
+        # 후보 검토 항목도 decide.py 가 그대로 읽는다(표·갈림 줄은 무시, 후보만 라디오)
+        items = decide.parse_pending('## D05 핵심 알고리즘: 발주량   (영향: PRD B03 | 담당자 확인: 불필요 — 기술 선택, 결정은 사람)\n'
+                                     '- [ ] A. 28일 평균 — 단순·설명 쉬움 · 10분 · test_avg (추천)\n- [ ] B. 가중 평균 — 최근 반영 · 20분 · test_wavg\n'
+                                     '- [ ] C. 기타: ____\n갈림: P-001 재고 5 → A 12 / B 15\n| 후보 | 장점 |\n|---|---|\n메모:\n')
+        self.assertEqual([c['key'] for c in items[0]['candidates']], ['A', 'B', 'C'])
+        self.assertTrue(items[0]['candidates'][0]['recommended'])
+        self.assertEqual(items[0]['ask'], '불필요 — 기술 선택, 결정은 사람')
+
 
 if __name__ == '__main__':
     unittest.main()

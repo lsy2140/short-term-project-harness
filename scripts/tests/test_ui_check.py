@@ -337,7 +337,7 @@ class TestKitPages(unittest.TestCase):
             if '834' not in read(p):
                 missing.append(os.path.relpath(p, ROOT))
         self.assertEqual(missing, [], '834 없음')
-        old = ('screenshots/ 2장', '시안 2~3', '후보 2~3', '3장 이하')
+        old = ('screenshots/ 2장', '시안 2~3', '후보 2~3 → 후보마다', '3장 이하')   # '후보 2~3' 만으로는 핵심 알고리즘 후보(prompts 27)와 겹친다
         hits = []
 
         def mds(d):
